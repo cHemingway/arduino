@@ -1,0 +1,5 @@
+{
+    "mType": "servo",
+    "deviceID":"servoA",
+    "value":100
+}

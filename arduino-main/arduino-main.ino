@@ -2,12 +2,22 @@
 /* Main IO code based on https://www.arduino.cc/en/Tutorial/SerialEvent */
 /* JSON parser code from https://arduinojson.org/v5/example/parser/ */
 
+/* ============================================================ */
+/* ======================Import libraries====================== */
+/* ============================================================ */
 #include <EEPROM.h> // Library for writing to Arduino's non volatile memory
 #include <ArduinoJson.h>
 
+/* ============================================================ */
+/* ==================Set up global variables=================== */
+/* ============================================================ */
 String inputString = "";         // a String to hold incoming data
 bool stringComplete = false;  // whether a full JSON string has been received
 
+
+/* ============================================================ */
+/* =======================Setup function======================= */
+/* =============Runs once when Arduino is turned on============ */
 void setup() {
   // Write to Arduino storage that this is Arduino A (Only need to do once)
   // EEPROM.write(0, 'A');
@@ -18,6 +28,9 @@ void setup() {
   inputString.reserve(2000);
 }
 
+/* ============================================================ */
+/* =======================Loop function======================== */
+/* ======Runs continuously after setup function finishes======= */
 void loop() {
   // print the string when a newline arrives:
   if (stringComplete) {
@@ -28,19 +41,21 @@ void loop() {
 
     // Test if parsing succeeds.
     if (!root.success()) {
-      Serial.println("parseObject() failed");
+      Serial.println("parseObject() failed"); // Remove/change this line in production code
       return;
     }
 
     if(root["mType"]=="ping"){
+      // If the incoming message is a ping then respond with which arduino this is
       Serial.print("{\"mtype\":\"ping\",\"deviceID\":\"Arduino");
-      Serial.print(char(EEPROM.read(0)));
+      Serial.print(char(EEPROM.read(0))); // Read arduino ID from memory
       Serial.println("\"}");
     }
     else{
+      // Else just respond with the received message to ensure it was received
       Serial.print(inputString);
     }
-    // clear the string:
+    // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
   }

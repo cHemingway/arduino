@@ -28,6 +28,7 @@ void setup() {
   inputString.reserve(200);
   arduinoID = "Arduino" + String(char(EEPROM.read(0)));
   if (EEPROM.read(1) == '1') {
+//    TODO: Set bool to true here when not testing so value is always set to '1'
     sensors = false;
   }
 }

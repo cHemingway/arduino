@@ -13,6 +13,10 @@
             "description":"The ID of the device which is sending/receiving the data",
             "type":"string"
         },
+        "partID": {
+            "description":"The part which the value refers to. Such as sensor ID or servo ID",
+            "type":"string"
+        },
         "value": {
             "description":"The value of the data being sent. pwm value for a servo or sensor data",
             "type":"integer"

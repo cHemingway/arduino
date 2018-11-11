@@ -48,8 +48,8 @@ void pingResponse() {
       JsonObject& res = jb.createObject();
       res["mType"] = "ping";
       res["deviceID"] = arduinoID;
-      res.printTo(resString);
-      Serial.println(resString);
+      res.printTo(Serial);
+//      Serial.println(resdeString);
 }
 
 /*
@@ -107,7 +107,11 @@ void loop() {
         pingResponse();
     }
     else if (root["mType"] == "servo"){
-      setServo(root["partID"], root["value"]);   
+      if (root["partID"] == NULL) {
+        Serial.println("Invalid message format");
+      } else {
+        setServo(root["partID"], root["value"]);   
+      }
     } else {
       // Else just respond with the received message to ensure it was received
       Serial.print(inputString);

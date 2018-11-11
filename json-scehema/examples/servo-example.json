@@ -1,5 +1,5 @@
 {
     "mType": "servo",
-    "deviceID":"servoA",
+    "partID":"servoA",
     "value":100
 }

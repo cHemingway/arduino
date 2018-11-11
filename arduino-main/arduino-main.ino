@@ -42,12 +42,14 @@ void setup() {
  */
 void pingResponse() {
   // If the incoming message is a ping then respond with which arduino this is
+      String resString;
       const int capacity = 100;
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
       res["mType"] = "ping";
       res["deviceID"] = arduinoID;
-      res.printTo(Serial);
+      res.printTo(resString);
+      Serial.println(resString);
 }
 
 /*
@@ -131,7 +133,7 @@ void serialEvent() {
     // get the new byte:
     char inChar = (char)Serial.read();
     // add it to the inputString:
-    if (inChar == '\n') {
+    if (inChar == '\n' || inChar == '\r') {
       stringComplete = true;
       break;
     }

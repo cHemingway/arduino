@@ -107,7 +107,8 @@ void loop() {
         pingResponse();
     }
     else if (root["mType"] == "servo"){
-      if (root["partID"] == NULL) {
+      String part = root["partID"];
+      if (part == NULL) {
         Serial.println("Invalid message format");
       } else {
         setServo(root["partID"], root["value"]);   

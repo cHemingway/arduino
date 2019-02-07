@@ -1,5 +1,5 @@
 
-/* Program to recieve and parse an incoming JSON string */
+/* Program to run on all Arduinos */
 /* Main IO code based on https://www.arduino.cc/en/Tutorial/SerialEvent */
 /* JSON parser code from https://arduinojson.org/v5/example/parser/ */
 
@@ -30,6 +30,10 @@ void setup() {
   if (EEPROM.read(1) == '1') {
 //    TODO: Set bool to true here when not testing so value is always set to '1'
     sensors = false;
+  }
+
+  if(sensors){
+    // TODO: Initialise any sensors and assign them to part IDs
   }
 }
 
@@ -80,9 +84,10 @@ void readSensor(String partID) {
       JsonObject& res = jb.createObject();
       res["mType"] = "sensor";
       res["deviceID"] = arduinoID;
-      res["partID"] = "sensor1";
+      res["partID"] = partID;
       res["value"] = 10;
-      res.printTo(Serial);}
+      res.printTo(Serial);
+}
 
 /* ============================================================ */
 /* =======================Loop function======================== */
@@ -124,7 +129,7 @@ void loop() {
   }
 
   if (sensors) {
-    readSensor("test");
+    readSensor("test"); // TODO: Run for each sensor
   } 
 }
 

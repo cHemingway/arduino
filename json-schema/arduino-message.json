@@ -7,10 +7,14 @@
     "properties": {
         "mType": {
             "description":"The type of message which is being passed. See arduino-message.md for details.",
-            "enum": ["sensor", "servo", "ping"]
+            "enum": ["sensor", "servo", "ping", "error"]
         },
         "deviceID": {
             "description":"The ID of the device which is sending/receiving the data",
+            "type":"string"
+        },
+        "partID": {
+            "description":"The part which the value refers to. Such as sensor ID or servo ID",
             "type":"string"
         },
         "value": {

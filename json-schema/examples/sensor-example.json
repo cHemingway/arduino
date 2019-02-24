@@ -1,6 +1,6 @@
 {
     "mType":"sensor",
-    "deviceID":"ArduinoA",
+    "deviceID":"Ard-I",
     "partID":"sensorA",
     "value":100
 }

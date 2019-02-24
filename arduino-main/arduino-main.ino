@@ -18,34 +18,7 @@ bool stringComplete = false;  // whether a full JSON string has been received
 String arduinoID = "";
 bool sensors = false;
 
-// TODO set up some sort of mapping from the JSON ID to actual device
-
-//// Mapping devices to pins
-////define the max size of the hashtable
-//const byte HASH_SIZE = 50;
-////storage
-//HashType<char*,int> hashRawArray[HASH_SIZE];
-////handles the storage [search,retrieve,insert]
-//HashMap<char*,int> deviceMap = HashMap<char*,int>( \hashRawArray , HASH_SIZE );
-//
-//
-//
-//
-//void mapDevicesToPins(){
-//  // Set Values
-//    deviceMap[0]("Thr-M",0);
-//    deviceMap[1]("Thr-FP",1);
-//    deviceMap[2]("Thr-FS",2);
-//    deviceMap[3]("Thr-AP",3);
-//    deviceMap[4]("Thr-AS",4);
-//    deviceMap[5]("Thr-TFP",5);
-//    deviceMap[6]("Thr-TFS",6);
-//    deviceMap[7]("Thr-TAP",7);
-//    deviceMap[8]("Thr-TAS",8);
-//
-//
-//  // Initialise pins
-//}
+// TODO set up some sort of mapping from the JSON ID to device object
 
 /* ============================================================ */
 /* =======================Set up classes======================= */
@@ -186,6 +159,8 @@ void setup() {
     Output *test = new Thruster();
     test->init(2,"Thr-FP");
     test->setValue(5);
+    test->setValue(1500);
+    test->setValue(2000);
     Serial.println("End Test");
 }
 

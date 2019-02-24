@@ -48,6 +48,7 @@ void pingResponse() {
       JsonObject& res = jb.createObject();
       res["mType"] = "ping";
       res["deviceID"] = arduinoID;
+      res["error"] = 0;
       res.printTo(Serial);
 //      Serial.println(resdeString);
 }
@@ -66,6 +67,7 @@ void setServo(String servoID, int pwmValue) {
       JsonObject& res = jb.createObject();
       res["mType"] = "servo";
       res["deviceID"] = arduinoID;
+      res["error"] = 0;
       res.printTo(Serial);
       Serial.println();
 }
@@ -83,6 +85,7 @@ void readSensor(String partID) {
       res["deviceID"] = arduinoID;
       res["partID"] = "sensor1";
       res["value"] = 10;
+      res["error"] = 0;
       res.printTo(Serial);
       Serial.println();}
 

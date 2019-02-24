@@ -1,4 +1,4 @@
 {
-    "id": "B",
-    "mType":"ping"
+    "mType":"ping",
+    "deviceID":"ArduinoA"
 }

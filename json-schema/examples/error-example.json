@@ -1,5 +1,5 @@
 {
-    "mType":"error",
+    "mType":"Servo",
     "deviceID":"ArduinoA",
     "value":"Thruster power out of range"
 }

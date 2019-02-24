@@ -1,6 +1,6 @@
 {
-    "id": "A",
     "mType": "servo",
+    "deviceID":"ArduinoA",
     "partID":"servoA",
     "value":100
 }

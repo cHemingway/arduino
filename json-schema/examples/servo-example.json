@@ -1,4 +1,5 @@
 {
+    "id": "A",
     "mType": "servo",
     "partID":"servoA",
     "value":100

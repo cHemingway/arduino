@@ -2,5 +2,6 @@
     "mType":"sensor",
     "deviceID":"ArduinoA",
     "partID":"sensorA",
-    "value":100
+    "value":100,
+    "error": 0
 }

@@ -29,7 +29,7 @@ void setup() {
   arduinoID = "Arduino" + String(char(EEPROM.read(0)));
   if (EEPROM.read(1) == '1') {
 //    TODO: Set bool to true here when not testing so value is always set to '1'
-    sensors = false;
+    sensors = true;
   }
 }
 
@@ -67,6 +67,7 @@ void setServo(String servoID, int pwmValue) {
       res["mType"] = "servo";
       res["deviceID"] = arduinoID;
       res.printTo(Serial);
+      Serial.println();
 }
 
 /*
@@ -82,7 +83,19 @@ void readSensor(String partID) {
       res["deviceID"] = arduinoID;
       res["partID"] = "sensor1";
       res["value"] = 10;
-      res.printTo(Serial);}
+      res.printTo(Serial);
+      Serial.println();}
+
+void returnError(String type, int code) {
+      const int capacity = 100;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["mType"] = type;
+      res["deviceID"] = arduinoID;
+      res["error"] = code;
+      res.printTo(Serial);
+      Serial.println();;
+}
 
 /* ============================================================ */
 /* =======================Loop function======================== */
@@ -97,7 +110,7 @@ void loop() {
     
     // Test if parsing succeeds.
     if (!root.success()) {
-      Serial.println("parseObject() failed");// Remove/change this line in production code
+      returnError(root["mType"], 400);
       inputString = "";
       stringComplete = false;
       return;
@@ -109,20 +122,19 @@ void loop() {
     else if (root["mType"] == "servo"){
       String part = root["partID"];
       if (part == NULL) {
-        Serial.println("Invalid message format");
+        returnError(root["mType"], 400);
       } else {
         setServo(root["partID"], root["value"]);   
       }
     } else {
-      // Else just respond with the received message to ensure it was received
-      Serial.print(inputString);
+      // Else send error
+      returnError(root["mType"], 404);
     }
 
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
   }
-
   if (sensors) {
     readSensor("test");
   } 

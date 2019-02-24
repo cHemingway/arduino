@@ -5,9 +5,13 @@
     "description": "The message format for communicating with the Arduinos",
     "type": "object",
     "properties": {
+        "id": {
+            "description": "The ID of the sending/receiving arduino that the message is for",
+            "enum": ["A", "B", "C", "D"]
+        },
         "mType": {
             "description":"The type of message which is being passed. See arduino-message.md for details.",
-            "enum": ["sensor", "servo", "ping", "error"]
+            "enum": ["sensor", "servo", "ping"]
         },
         "deviceID": {
             "description":"The ID of the device which is sending/receiving the data",
@@ -20,6 +24,11 @@
         "value": {
             "description":"The value of the data being sent. pwm value for a servo or sensor data",
             "type":"integer"
+        },
+        "error": {
+            "description": "An error code to be sent back from the Arduino with each message. If set to 0 no error.",
+            "type":"integer"
         }
+
     }
 }

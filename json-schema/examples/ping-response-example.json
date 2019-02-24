@@ -1,4 +1,5 @@
 {
     "mType":"ping",
-    "deviceID":"ArduinoA"
+    "deviceID":"ArduinoA",
+    "error": 0
 }

@@ -117,7 +117,7 @@ class Thruster: public Output {
       thruster.attach(inputPin); // Associate the thruster with the specified pin
       pin = inputPin; // Record the associated pin
       thruster.writeMicroseconds(1500); // Set value to "stopped"
-      
+      Serial.println("Ran init");
     }
 
     int setValue(int inputValue) {
@@ -155,11 +155,25 @@ void setup() {
 
 
   //TESTING
-   Serial.println("Start Test");
+
+  
+//   Serial.println("Start Test");
+//Servo s;
+//s.attach(3);
+//s.writeMicroseconds(1700);
+//delay(1000);
+//s.writeMicroseconds(1500);
+   
     Output *test = new Thruster();
     test->init(2,"Thr-FP");
     test->setValue(5);
+    delay(1000);
+    test->setValue(1600);
+    delay(1000);
     test->setValue(1500);
+    delay(1000);
+    test->setValue(1400);
+    delay(1000);
     test->setValue(2000);
     Serial.println("End Test");
 }

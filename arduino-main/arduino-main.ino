@@ -324,34 +324,6 @@ void setup() {
     sensors = false;
   }
 
-
-  //TESTING
-
-
-  //   Serial.println("Start Test");
-  //Servo s;
-  //s.attach(3);
-  //s.writeMicroseconds(1700);
-  //delay(1000);
-  //s.writeMicroseconds(1500);
-
-  Output *test = new Thruster();
-  test->init(2, "Thr-FP");
-  test->setValue(5);
-  delay(1000);
-  test->setValue(1600);
-  delay(1000);
-  test->setValue(1500);
-  delay(1000);
-  test->setValue(1400);
-  delay(1000);
-  test->setValue(2000);
-
-
-  Input *imu = new IMU();
-  imu->init(-1, "IMU");
-  imu->getValue();
-  Serial.println("End Test");
 }
 
 /* ============================================================ */
@@ -373,38 +345,6 @@ void pingResponse() {
   //      Serial.println(resdeString);
 }
 
-/*
-   Takes the servoID and pwmValue and sets the output for that
-
-   Returns 0 on success
-   Return -1 on failure
-
-   TODO: Remove current code and properly implement setting of values.
-*/
-void setServo(String servoID, int pwmValue) {
-  const int capacity = 100;
-  StaticJsonBuffer<capacity> jb;
-  JsonObject& res = jb.createObject();
-  res["mType"] = "servo";
-  res["deviceID"] = arduinoID;
-  res.printTo(Serial);
-}
-
-/*
-   Reads a value from the sensor which corresponds to partID. Prints that value to serial.
-
-   TODO: Remove current code and implement reading from sensor.
-*/
-void readSensor(String partID) {
-  const int capacity = 100;
-  StaticJsonBuffer<capacity> jb;
-  JsonObject& res = jb.createObject();
-  res["mType"] = "sensor";
-  res["deviceID"] = arduinoID;
-  res["partID"] = "sensor1";
-  res["value"] = 10;
-  res.printTo(Serial);
-}
 
 /* ============================================================ */
 /* =======================Loop function======================== */

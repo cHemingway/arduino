@@ -21,7 +21,6 @@ bool stringComplete = false;  // whether a full JSON string has been received
 String arduinoID = "";
 bool sensors = false;
 
-Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
 
 // TODO set up some sort of mapping from the JSON ID to device object
 
@@ -29,6 +28,37 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
 /* =======================Set up classes======================= */
 /* ============================================================ */
 
+/* ==========================Communication========================== */
+
+// Class to handle sending values back up to the surface
+
+class Communication{
+  private:
+    
+  public:
+    static void sendValue(String device, String value){
+      String resString;
+      const int capacity = 100;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res[device] = value;
+      res.printTo(Serial);
+      Serial.println();
+    }
+    static void sendError(String errorMessage){
+      String resString;
+      const int capacity = 100;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["error"] = errorMessage;
+      res.printTo(Serial);
+      Serial.println();
+    }
+};
+
+Communication communication;
+
+/* ==========================Abstract========================== */
 
 
 class Input {
@@ -46,80 +76,6 @@ class Input {
 
     virtual int getValue() {
       // Get the current value of this device (EG: Temperature)
-    }
-};
-
-class IMU: public Input {
-    // Designed to be a generic interface for all output devices.
-
-  protected:
-    bool initialised = false;
-
-  public:
-    virtual void init(int inputPin, String incomingPartID) {
-      // Run parent method
-      Input::init(inputPin, incomingPartID);
-      if(!bno.begin())
-      {
-        // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "IMU BNO055 not found. Check wiring.";
-        res.printTo(Serial);
-      }
-      else{
-        bno.setExtCrystalUse(true);
-        initialised = true;
-      }
-    }
-
-    virtual int getValue() {
-      if(initialised){
-        // Send x, y, z data from this sensor
-        /* Get a new sensor event */
-        sensors_event_t event;
-        bno.getEvent(&event);
-        /* Output the floating point data */
-        // x
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "sensor";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID+'x';
-        res["value"] = event.orientation.x;
-        res.printTo(Serial);
-  
-        // y
-        res["partID"] = partID+'y';
-        res["value"] = event.orientation.y;
-        res.printTo(Serial);
-  
-        // z
-        res["partID"] = partID+'z';
-        res["value"] = event.orientation.z;
-        res.printTo(Serial);
-      }
-      else{
-        // Throw error because this sensor has not yet been initialised properly
-        // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "Sensor not initialised.";
-        res.printTo(Serial);
-      }
-      
     }
 };
 
@@ -142,30 +98,14 @@ class Output {
     virtual int setValue(int inputValue) {
       int value = inputValue;
       // Method to set thrust capped to min and max
-      bool outOfRange = false;
-      if (value > maxValue) {
-        value = maxValue;
-        outOfRange = true;
-      }
-      else if (value < minValue) {
-        value = minValue;
-        outOfRange = true;
-      }
 
-      if (outOfRange) {
+      if (value < minValue || value > maxValue) {
         // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "Incoming value out of range.";
-        res.printTo(Serial);
+        communication.sendError("Incoming value out of range.");
       }
-
-      currentValue = value;
+      else{
+        currentValue = value;
+      }
       return value;
       // Then set the value on the device
     }
@@ -175,6 +115,60 @@ class Output {
       return currentValue;
     }
 };
+
+
+/* ===========================Inputs=========================== */
+
+
+class IMU: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    bool initialised = false;
+    Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
+
+  public:
+    virtual void init(int inputPin, String incomingPartID) {
+      // Run parent method
+      Input::init(inputPin, incomingPartID);
+      if(!bno.begin())
+      {
+        // Send error message
+        communication.sendError("IMU BNO055 not found. Check wiring.");
+      }
+      else{
+        bno.setExtCrystalUse(true);
+        initialised = true;
+      }
+    }
+
+    virtual int getValue() {
+      if(initialised){
+        // Send x, y, z data from this sensor
+        /* Get a new sensor event */
+        sensors_event_t event;
+        bno.getEvent(&event);
+        /* Output the floating point data */
+        // x
+        communication.sendValue(partID+'x',String(event.orientation.x));
+  
+        // y
+        communication.sendValue(partID+'y',String(event.orientation.y));
+  
+        // z
+        communication.sendValue(partID+'z',String(event.orientation.z));
+      }
+      else{
+        // Throw error because this sensor has not yet been initialised properly
+        communication.sendError("IMU BNO055 not initialised.");
+      }
+      
+    }
+};
+
+
+/* ===========================Outputs=========================== */
+
 
 class Thruster: public Output {
 
@@ -244,61 +238,83 @@ class ArmMotor: public Output {
     }
 };
 
+/* ==========================Mapper========================== */
+
+// Maps device ID strings to object pointers
+
 class Mapper {
-  protected:
-    const static int numberOfOutputs=12;
-    static Output OutputObjects[numberOfOutputs];
+  private:
+    const static int numberOfOutputs=100;
+    static Output* OutputObjects[numberOfOutputs];
     static String OutputIDs[numberOfOutputs];
 
-    const static int numberOfInputs=12;
-    static Input InputObjects[numberOfInputs];
+    const static int numberOfInputs=100;
+    static Input* InputObjects[numberOfInputs];
     static String InputIDs[numberOfInputs];
     
   public:
     static void mapOutputs(){
-      
+      // Map and initialise outputs
+      int i = 0; // Current position
+      OutputIDs[i] = "Thr-FP";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-FS";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-AP";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-AS";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-TFP";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-TFS";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-TAP";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-TAS";
+      OutputObjects[i] = new Thruster();
+      i = i++;
+      OutputIDs[i] = "Thr-M";
+      OutputObjects[i] = new Thruster();
     }
     static void mapInputs(){
+      // Map and initialise inputs
       
     }
     static Output* getOutput(String jsonID){
       for(int i = 0; i < numberOfOutputs; i++){
         if(jsonID == OutputIDs[i]){
-          return &OutputObjects[i];
+          return OutputObjects[i];
         }
       }
 
       // Send error message saying the device was not found
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["mType"] = "error";
-      res["deviceID"] = arduinoID;
-      res["partID"] = jsonID;
-      res["value"] = "This partID does not exist.";
-      res.printTo(Serial);
+      String errorMessage = "Output device ID is not valid: "+jsonID;
+      communication.sendError(errorMessage);
     }
     static Input* getInput(String jsonID){
       for(int i = 0; i < numberOfInputs; i++){
         if(jsonID == InputIDs[i]){
-          return &InputObjects[i];
+          return InputObjects[i];
         }
       }
 
       // Send error message saying the device was not found
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["mType"] = "error";
-      res["deviceID"] = arduinoID;
-      res["partID"] = jsonID;
-      res["value"] = "This partID does not exist.";
-      res.printTo(Serial);
+      String errorMessage = "Input device ID is not valid: "+jsonID;
+      communication.sendError(errorMessage);
     }
     
 };
+
+Mapper mapper; // Declare a new mapper object to map IDs to devices
+
+
 
 
 /* ============================================================ */
@@ -314,16 +330,13 @@ void setup() {
   arduinoID = "Ard-" + String(char(EEPROM.read(0)));
 
   if (arduinoID == "Ard-O") {
+    mapper.mapOutputs;
     // This is an output Arduino
-
-    // TODO: Set up thrusters
   }
-
-  if (EEPROM.read(1) == '1') {
-    //    TODO: Set bool to true here when not testing so value is always set to '1'
-    sensors = false;
+  else if (arduinoID == "Ard-I"){
+    mapper.mapInputs;
   }
-
+  mapper.getOutput("Thr-FP")->init(2,"Thr-FP");
 }
 
 /* ============================================================ */
@@ -373,7 +386,7 @@ void loop() {
       if (part == NULL) {
         Serial.println("Invalid message format");
       } else {
-        setServo(root["partID"], root["value"]);
+        //setServo(root["partID"], root["value"]);
       }
     } else {
       // Else just respond with the received message to ensure it was received
@@ -386,7 +399,7 @@ void loop() {
   }
 
   if (sensors) {
-    readSensor("test");
+    //readSensor("test");
   }
 }
 

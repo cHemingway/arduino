@@ -178,7 +178,7 @@ class Thruster: public Output {
 
   public:
 
-    void init(int inputPin, String partID) {
+    Thruster::Thruster (int inputPin, String partID) {
       // Run this method in setup() to initialise a thruster
 
       // Run parent method
@@ -193,6 +193,7 @@ class Thruster: public Output {
       pin = inputPin; // Record the associated pin
       thruster.writeMicroseconds(1500); // Set value to "stopped"
     }
+
 
     int setValue(int inputValue) {
       // call parent logic (keeps value within preset boundary)
@@ -244,64 +245,43 @@ class ArmMotor: public Output {
 
 class Mapper {
   private:
-    const static int numberOfOutputs=100;
-    static Output* OutputObjects[numberOfOutputs];
-    static String OutputIDs[numberOfOutputs];
+    const static int numberOfOutputs=9;
+    Output* outputObjects[numberOfOutputs];
+    String outputIDs[numberOfOutputs] = {"Thr-FP", "Thr-FS", "Thr-AP", "Thr-AS", "Thr-TFP", "Thr-TFS", "Thr-TAP", "Thr-TAS","Thr-M"};
 
     const static int numberOfInputs=100;
-    static Input* InputObjects[numberOfInputs];
-    static String InputIDs[numberOfInputs];
+    Input* inputObjects[numberOfInputs];
+    String inputIDs[numberOfInputs];
+
     
   public:
-    static void mapOutputs(){
+    void mapOutputs(){
       // Map and initialise outputs
-      int i = 0; // Current position
-      OutputIDs[i] = "Thr-FP";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-FS";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-AP";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-AS";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-TFP";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-TFS";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-TAP";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-TAS";
-      OutputObjects[i] = new Thruster();
-      i = i++;
-      OutputIDs[i] = "Thr-M";
-      OutputObjects[i] = new Thruster();
+      for ( int i = 0; i < 9; i++) {
+        outputObjects[i] = new Thruster(2+i, outputIDs[i]);
+      }
     }
-    static void mapInputs(){
+    
+    void mapInputs(){
       // Map and initialise inputs
       
     }
-    static Output* getOutput(String jsonID){
+    Output* getOutput(String jsonID){
       for(int i = 0; i < numberOfOutputs; i++){
-        if(jsonID == OutputIDs[i]){
-          return OutputObjects[i];
+        if(jsonID == outputIDs[i]){
+          return outputObjects[i];
         }
       }
-
       // Send error message saying the device was not found
       String errorMessage = "Output device ID is not valid: "+jsonID;
       communication.sendError(errorMessage);
+
     }
-    static Input* getInput(String jsonID){
+    
+    Input* getInput(String jsonID){
       for(int i = 0; i < numberOfInputs; i++){
-        if(jsonID == InputIDs[i]){
-          return InputObjects[i];
+        if(jsonID == inputIDs[i]){
+          return inputObjects[i];
         }
       }
 
@@ -322,21 +302,20 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
 
-
   // initialize serial:
   Serial.begin(9600);
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
   arduinoID = "Ard-" + String(char(EEPROM.read(0)));
-
+  arduinoID = "Ard-O";
   if (arduinoID == "Ard-O") {
-    mapper.mapOutputs;
+    mapper.mapOutputs();
     // This is an output Arduino
   }
   else if (arduinoID == "Ard-I"){
-    mapper.mapInputs;
+    mapper.mapInputs();
   }
-  mapper.getOutput("Thr-FP")->init(2,"Thr-FP");
+  mapper.getOutput("Thr-FP");
 }
 
 /* ============================================================ */

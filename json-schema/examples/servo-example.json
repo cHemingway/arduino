@@ -1,5 +1,6 @@
 {
     "mType": "servo",
+    "deviceID":"Ard-O",
     "partID":"servoA",
     "value":100
 }

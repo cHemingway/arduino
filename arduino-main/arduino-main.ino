@@ -69,7 +69,10 @@ class Input {
     String partID="part ID not set";
 
   public:
-    virtual void init(int inputPin, String incomingPartID) {
+    Input() {
+      //Empty constructor to create harmless input
+    }
+    Input(int inputPin, String incomingPartID) {
       partID = incomingPartID;
       // Run this method in setup() to initialise a device
     }
@@ -90,9 +93,13 @@ class Output {
     String partID="part ID not set";
 
   public:
-    virtual void init(int inputPin, String incomingPartID) {
+    Output() {
+      //Empty constructor to create harmless output
+    }
+  
+    Output(int inputPin, String incomingPartID) {
       partID = incomingPartID;
-      // Run this method in setup() to initialise a device
+      communication.sendValue("Constructor","Output");
     }
 
     virtual int setValue(int inputValue) {
@@ -128,9 +135,9 @@ class IMU: public Input {
     Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
 
   public:
-    virtual void init(int inputPin, String incomingPartID) {
+    IMU(int inputPin, String incomingPartID){
       // Run parent method
-      Input::init(inputPin, incomingPartID);
+      Input(inputPin, incomingPartID);
       if(!bno.begin())
       {
         // Send error message
@@ -142,7 +149,7 @@ class IMU: public Input {
       }
     }
 
-    virtual int getValue() {
+    int getValue() {
       if(initialised){
         // Send x, y, z data from this sensor
         /* Get a new sensor event */
@@ -178,17 +185,17 @@ class Thruster: public Output {
 
   public:
 
-    Thruster::Thruster (int inputPin, String partID) {
+    Thruster (int inputPin, String partID) {
       // Run this method in setup() to initialise a thruster
 
       // Run parent method
-      Output::init(inputPin, partID);
+      Output(inputPin, partID);
 
       // Set limit and starting values
       maxValue = 1900;
       minValue = 1100;
       currentValue = 1500;
-
+      communication.sendValue("Thruster initialised",partID);
       thruster.attach(inputPin); // Associate the thruster with the specified pin
       pin = inputPin; // Record the associated pin
       thruster.writeMicroseconds(1500); // Set value to "stopped"
@@ -201,43 +208,11 @@ class Thruster: public Output {
       // Actually control the device
       thruster.writeMicroseconds(value);
       // Return the set value
+      communication.sendValue("Thruster set",partID);
       return value;
     }
 };
 
-class ArmMotor: public Output {
-
-  protected:
-    // Represents a thruster controlled by an ESC
-    Servo servo; // Using the Servo class for servos
-
-  public:
-
-    void init(int inputPin, String partID) {
-      // Run this method in setup() to initialise a thruster
-
-      // Run parent method
-      Output::init(inputPin, partID);
-
-      // Set limit and starting values
-      maxValue = 1900;
-      minValue = 1100;
-      currentValue = 1500;
-
-      servo.attach(inputPin); // Associate the thruster with the specified pin
-      pin = inputPin; // Record the associated pin
-      servo.writeMicroseconds(1500); // Set value to "stopped"
-    }
-
-    int setValue(int inputValue) {
-      // call parent logic (keeps value within preset boundary)
-      int value = Output::setValue(inputValue);
-      // Actually control the device
-      servo.writeMicroseconds(value);
-      // Return the set value
-      return value;
-    }
-};
 
 /* ==========================Mapper========================== */
 
@@ -245,46 +220,98 @@ class ArmMotor: public Output {
 
 class Mapper {
   private:
-    const static int numberOfOutputs=9;
-    Output* outputObjects[numberOfOutputs];
-    String outputIDs[numberOfOutputs] = {"Thr-FP", "Thr-FS", "Thr-AP", "Thr-AS", "Thr-TFP", "Thr-TFS", "Thr-TAP", "Thr-TAS","Thr-M"};
+    // t for Ard-T (Thrusters)
+    const static int tCount=8;
+    Output* tObjects[tCount];
+    String tIDs[tCount] = {"Thr-FP", "Thr-FS", "Thr-AP", "Thr-AS", "Thr-TFP", "Thr-TFS", "Thr-TAP", "Thr-TAS"};
 
-    const static int numberOfInputs=100;
-    Input* inputObjects[numberOfInputs];
-    String inputIDs[numberOfInputs];
+    // i for Ard-I (Input)
+    const static int iCount=3;
+    Input* iObjects[iCount];
+    String iIDs[iCount] = {"Sen-IMUx", "Sen-IMUy","Sen-IMUz"};
+
+    // a for Ard-A (Arm)
+    const static int aCount=3;
+    Output* aObjects[aCount];
+    String aIDs[aCount] = {"Mot-R", "Mot-G", "Mot-G"};
+
+    // m for Ard-M (Micro ROV)
+    const static int mCount=2;
+    Output* mObjects[mCount];
+    String mIDs[mCount] = {"Thr-M", "LED-M"};
 
     
   public:
-    void mapOutputs(){
-      // Map and initialise outputs
-      for ( int i = 0; i < 9; i++) {
-        outputObjects[i] = new Thruster(2+i, outputIDs[i]);
+    void mapT(){
+      // Map and initialise thrusters
+      for ( int i = 0; i < tCount; i++) {
+        tObjects[i] = new Thruster(2+i, tIDs[i]);
       }
     }
     
-    void mapInputs(){
+    void mapI(){
       // Map and initialise inputs
+      iObjects[0] = new IMU(0,iIDs[0]);
+      iObjects[1] = new IMU(0,iIDs[1]);
+      iObjects[2] = new IMU(0,iIDs[2]);
+    }
+
+    void mapA(){
       
     }
+
+    void mapM(){
+      mObjects[0] = new Thruster(0,mIDs[0]);
+    }
+    
     Output* getOutput(String jsonID){
-      for(int i = 0; i < numberOfOutputs; i++){
-        if(jsonID == outputIDs[i]){
-          return outputObjects[i];
+      if(arduinoID=="Ard-T"){
+        for(int i = 0; i < tCount; i++){
+          if(jsonID == tIDs[i]){
+            return tObjects[i];
+          }
         }
+      }
+      else if(arduinoID=="Ard-A"){
+        for(int i = 0; i < aCount; i++){
+          if(jsonID == aIDs[i]){
+            return aObjects[i];
+          }
+        }
+      }
+      else if(arduinoID=="Ard-M"){
+        for(int i = 0; i < mCount; i++){
+          if(jsonID == mIDs[i]){
+            return mObjects[i];
+          }
+        }
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "getOutput method doesn't have an option for "+arduinoID;
+        communication.sendError(errorMessage);
+        return new Output();
       }
       // Send error message saying the device was not found
       String errorMessage = "Output device ID is not valid: "+jsonID;
       communication.sendError(errorMessage);
-
+      return new Output();
     }
     
     Input* getInput(String jsonID){
-      for(int i = 0; i < numberOfInputs; i++){
-        if(jsonID == inputIDs[i]){
-          return inputObjects[i];
+      if(arduinoID=="Ard-I"){
+        for(int i = 0; i < iCount; i++){
+          if(jsonID == iIDs[i]){
+            return iObjects[i];
+          }
         }
       }
-
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "getInput method doesn't have an option for "+arduinoID;
+        communication.sendError(errorMessage);
+        return new Input();
+      }
       // Send error message saying the device was not found
       String errorMessage = "Input device ID is not valid: "+jsonID;
       communication.sendError(errorMessage);
@@ -307,15 +334,31 @@ void setup() {
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
   arduinoID = "Ard-" + String(char(EEPROM.read(0)));
-  arduinoID = "Ard-O";
-  if (arduinoID == "Ard-O") {
-    mapper.mapOutputs();
-    // This is an output Arduino
+
+  // Map inputs and outputs based on which Arduino this is
+  if (arduinoID == "Ard-T") {
+    mapper.mapT();
   }
   else if (arduinoID == "Ard-I"){
-    mapper.mapInputs();
+    mapper.mapI();
   }
-  mapper.getOutput("Thr-FP");
+  if (arduinoID == "Ard-A") {
+    mapper.mapA();
+  }
+  else if (arduinoID == "Ard-M"){
+    mapper.mapM();
+  }
+
+  
+//  communication.sendValue("Test","Success");
+//  mapper.getT("Thr-FS")->setValue(1500);
+//  delay(1000);
+//  mapper.getT("Thr-FS")->setValue(1600);
+//  delay(1000);
+//  mapper.getT("Thr-FS")->setValue(1700);
+//  delay(1000);
+//  mapper.getT("Thr-FS")->setValue(1500);
+//  communication.sendValue("Test","End");
 }
 
 /* ============================================================ */
@@ -344,11 +387,9 @@ void pingResponse() {
 void loop() {
   // print the string when a newline arrives:
   if (stringComplete) {
-
     // Set up JSON parser
     StaticJsonBuffer<100> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
-
     // Test if parsing succeeds.
     if (!root.success()) {
       Serial.println("parseObject() failed");// Remove/change this line in production code
@@ -357,19 +398,13 @@ void loop() {
       return;
     }
 
-    if (root["mType"] == "ping") {
-      pingResponse();
+    // Act on incoming message accordingly
+    if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
+      // This Arduino is for outputting
+      // TODO: parse incoming data
     }
-    else if (root["mType"] == "servo") {
-      String part = root["partID"];
-      if (part == NULL) {
-        Serial.println("Invalid message format");
-      } else {
-        //setServo(root["partID"], root["value"]);
-      }
-    } else {
-      // Else just respond with the received message to ensure it was received
-      Serial.print(inputString);
+    else if (arduinoID=="Ard-I"){
+      // TODO: Output sensor data
     }
 
     // clear the string ready for the next input

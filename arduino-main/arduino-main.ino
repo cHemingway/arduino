@@ -54,6 +54,15 @@ class Communication{
       res.printTo(Serial);
       Serial.println();
     }
+    static void sendStatus(String status){
+      String resString;
+      const int capacity = 100;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["status"] = status;
+      res.printTo(Serial);
+      Serial.println();
+    }
 };
 
 Communication communication;
@@ -74,7 +83,6 @@ class Input {
     }
     Input(int inputPin, String incomingPartID) {
       partID = incomingPartID;
-      // Run this method in setup() to initialise a device
     }
 
     virtual int getValue() {
@@ -99,7 +107,6 @@ class Output {
   
     Output(int inputPin, String incomingPartID) {
       partID = incomingPartID;
-      communication.sendValue("Constructor","Output");
     }
 
     virtual int setValue(int inputValue) {
@@ -109,6 +116,7 @@ class Output {
       if (value < minValue || value > maxValue) {
         // Send error message saying the incoming value was out of range
         communication.sendError("Incoming value out of range.");
+        return currentValue; // Keep output at same value
       }
       else{
         currentValue = value;
@@ -195,7 +203,6 @@ class Thruster: public Output {
       maxValue = 1900;
       minValue = 1100;
       currentValue = 1500;
-      communication.sendValue("Thruster initialised",partID);
       thruster.attach(inputPin); // Associate the thruster with the specified pin
       pin = inputPin; // Record the associated pin
       thruster.writeMicroseconds(1500); // Set value to "stopped"
@@ -208,7 +215,6 @@ class Thruster: public Output {
       // Actually control the device
       thruster.writeMicroseconds(value);
       // Return the set value
-      communication.sendValue("Thruster set",partID);
       return value;
     }
 };
@@ -226,9 +232,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr-FP", "Thr-FS", "Thr-AP", "Thr-AS", "Thr-TFP", "Thr-TFS", "Thr-TAP", "Thr-TAS"};
 
     // i for Ard-I (Input)
-    const static int iCount=3;
+    const static int iCount=1;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen-IMUx", "Sen-IMUy","Sen-IMUz"};
+    String iIDs[iCount] = {"Sen-IMU"};
 
     // a for Ard-A (Arm)
     const static int aCount=3;
@@ -252,8 +258,6 @@ class Mapper {
     void mapI(){
       // Map and initialise inputs
       iObjects[0] = new IMU(0,iIDs[0]);
-      iObjects[1] = new IMU(0,iIDs[1]);
-      iObjects[2] = new IMU(0,iIDs[2]);
     }
 
     void mapA(){
@@ -261,7 +265,7 @@ class Mapper {
     }
 
     void mapM(){
-      mObjects[0] = new Thruster(0,mIDs[0]);
+      mObjects[0] = new Thruster(2,mIDs[0]);
     }
     
     Output* getOutput(String jsonID){
@@ -316,6 +320,23 @@ class Mapper {
       String errorMessage = "Input device ID is not valid: "+jsonID;
       communication.sendError(errorMessage);
     }
+
+    int getNumberOfInputs(){
+      return iCount;
+    }
+
+    Input** getAllInputs(){
+      // Return pointer to the array of pointers
+      if(arduinoID=="Ard-I"){
+        return iObjects;
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "Can't get all inputs from a non-input Arduino.";
+        communication.sendError(errorMessage);
+        return {};
+      }
+    }
     
 };
 
@@ -331,6 +352,7 @@ void setup() {
 
   // initialize serial:
   Serial.begin(9600);
+  communication.sendStatus("Arduino Booting.");
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
   arduinoID = "Ard-" + String(char(EEPROM.read(0)));
@@ -348,38 +370,8 @@ void setup() {
   else if (arduinoID == "Ard-M"){
     mapper.mapM();
   }
-
-  
-//  communication.sendValue("Test","Success");
-//  mapper.getT("Thr-FS")->setValue(1500);
-//  delay(1000);
-//  mapper.getT("Thr-FS")->setValue(1600);
-//  delay(1000);
-//  mapper.getT("Thr-FS")->setValue(1700);
-//  delay(1000);
-//  mapper.getT("Thr-FS")->setValue(1500);
-//  communication.sendValue("Test","End");
+  communication.sendStatus("Arduino Initialised. Waiting for input.");
 }
-
-/* ============================================================ */
-/* ====================Message Functions======================= */
-/* ===========Run when the Arduino receives a message========== */
-
-/*
-   Responds to a ping with the ArduinoID.
-*/
-void pingResponse() {
-  // If the incoming message is a ping then respond with which arduino this is
-  String resString;
-  const int capacity = 100;
-  StaticJsonBuffer<capacity> jb;
-  JsonObject& res = jb.createObject();
-  res["mType"] = "ping";
-  res["deviceID"] = arduinoID;
-  res.printTo(Serial);
-  //      Serial.println(resdeString);
-}
-
 
 /* ============================================================ */
 /* =======================Loop function======================== */
@@ -392,7 +384,7 @@ void loop() {
     JsonObject& root = jsonBuffer.parseObject(inputString);
     // Test if parsing succeeds.
     if (!root.success()) {
-      Serial.println("parseObject() failed");// Remove/change this line in production code
+      communication.sendError("JSON parsing failed.");
       inputString = "";
       stringComplete = false;
       return;
@@ -402,18 +394,27 @@ void loop() {
     if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
       // This Arduino is for outputting
       // TODO: parse incoming data
+      for(const auto& current: root){
+        // For each incoming value
+        mapper.getOutput(current.key)->setValue(current.value);
+      }
     }
     else if (arduinoID=="Ard-I"){
-      // TODO: Output sensor data
+      // Output all sensor data
+      int numberOfInputs = mapper.getNumberOfInputs();
+      //Input* iObjects[numberOfInputs];
+      //iObjects = mapper.getAllInputs()
+      for(int i = 0; i < numberOfInputs; i++){
+        (*mapper.getAllInputs())[i].getValue();
+      }
+    }
+    else{
+      communication.sendError("Arduino ID not set up. This Arduino will not function");
     }
 
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
-  }
-
-  if (sensors) {
-    //readSensor("test");
   }
 }
 

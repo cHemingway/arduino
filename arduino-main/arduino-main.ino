@@ -97,14 +97,14 @@ class Input {
 
   protected:
     int pin=0; // The physical pin this is associated with
-    String partID="part ID not set";
+    String partID="Part ID not set.";
 
   public:
     Input() {
       //Empty constructor to create harmless input
     }
     Input(int inputPin, String incomingPartID) {
-      partID = incomingPartID;
+      this->partID += incomingPartID;
     }
 
     virtual int getValue() {
@@ -167,7 +167,7 @@ class IMU: public Input {
   public:
     IMU(int inputPin, String incomingPartID){
       // Run parent method
-      Input(inputPin, incomingPartID);
+      partID = incomingPartID;
       if(!bno.begin())
       {
         // Send error message
@@ -187,13 +187,13 @@ class IMU: public Input {
         bno.getEvent(&event);
         /* Output the floating point data */
         // x
-        communication.bufferValue(partID+'x',String(event.orientation.x));
+        communication.bufferValue(this->partID+'x',String(event.orientation.x));
   
         // y
-        communication.bufferValue(partID+'y',String(event.orientation.y));
+        communication.bufferValue(this->partID+'y',String(event.orientation.y));
   
         // z
-        communication.bufferValue(partID+'z',String(event.orientation.z));
+        communication.bufferValue(this->partID+'z',String(event.orientation.z));
       }
       else{
         // Throw error because this sensor has not yet been initialised properly

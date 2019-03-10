@@ -103,9 +103,6 @@ class Input {
     Input() {
       //Empty constructor to create harmless input
     }
-    Input(int inputPin, String incomingPartID) {
-      this->partID += incomingPartID;
-    }
 
     virtual int getValue() {
       // Get the current value of this device (EG: Temperature)
@@ -125,10 +122,6 @@ class Output {
   public:
     Output() {
       //Empty constructor to create harmless output
-    }
-  
-    Output(int inputPin, String incomingPartID) {
-      partID = incomingPartID;
     }
 
     virtual int setValue(int inputValue) {
@@ -151,13 +144,17 @@ class Output {
       // Get the current value of this device (EG: Servo position)
       return currentValue;
     }
+
+    virtual void constantTask(){
+      // Something which needs to be run all the time
+    }
 };
 
 
 /* ===========================Inputs=========================== */
 
 
-class IMU: public Input {
+class IMU: public Input { //                                                             TODO: Output all the things
     // Designed to be a generic interface for all output devices.
 
   protected:
@@ -212,22 +209,20 @@ class Thruster: public Output {
   protected:
     // Represents a thruster controlled by an ESC
     Servo thruster; // Using the Servo class because it uses the same values as our ESCs
+    const int stoppedValue=1500;
 
   public:
 
     Thruster (int inputPin, String partID) {
-      // Run this method in setup() to initialise a thruster
-
-      // Run parent method
-      Output(inputPin, partID);
+      this->partID = partID;
 
       // Set limit and starting values
       maxValue = 1900;
       minValue = 1100;
-      currentValue = 1500;
+      currentValue = stoppedValue;
       thruster.attach(inputPin); // Associate the thruster with the specified pin
       pin = inputPin; // Record the associated pin
-      thruster.writeMicroseconds(1500); // Set value to "stopped"
+      thruster.writeMicroseconds(stoppedValue); // Set value to "stopped"
     }
 
 
@@ -241,6 +236,100 @@ class Thruster: public Output {
     }
 };
 
+
+class ArmGripper: public Output {
+
+  protected:
+    // Represents a thruster motor opening and closing gripper
+    Servo thruster;
+    int leftLimit, rightLimit;
+    const int stoppedValue=1500;
+
+ public:
+
+    ArmGripper(int inputPin, String partID, int limitPinLeft, int limitPinRight ) {
+      this->partID = partID;
+
+      // Set limit and starting values
+      maxValue = 1900;
+      minValue = 1100;
+      currentValue = stoppedValue;
+      
+      thruster.attach(inputPin); // Associate the motor with the specified pin
+      pin = inputPin; // Record the associated pin
+      thruster.writeMicroseconds(stoppedValue); // Set value to "stopped"
+
+      // Set limit switches
+      leftLimit = limitPinLeft;
+      rightLimit = limitPinRight;
+      pinMode(limitPinLeft,INPUT_PULLUP);
+      pinMode(limitPinRight,INPUT_PULLUP);
+    }
+
+    int setValue(int inputValue) {//                                                    TODO: in main loop check if hit limit all the time (update: done - please test)
+
+        // call parent logic (keeps value within preset boundary)
+        int value = Output::setValue(inputValue); // set currentValue accordingly
+        if(hitLeftLimit() || hitRightLimit()){ // Checks if limit switch pressed and acts accordingly
+          return currentValue;
+        }
+        // Actually control the device
+        thruster.writeMicroseconds(value);
+        // Return the set value
+        return value;
+    }
+
+    bool hitLeftLimit(){ // check if a limit switch was hit
+      if(digitalRead(leftLimit)==LOW && currentValue<stoppedValue){ // Low = pressed
+        communication.bufferError("Left gripper limit hit. Motor stopped.");
+        currentValue = stoppedValue;
+        thruster.writeMicroseconds(currentValue);
+      }
+    }
+    bool hitRightLimit(){ // check if a limit switch was hit
+      if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
+        communication.bufferError("Right gripper limit hit. Motor stopped.");
+        currentValue = stoppedValue;
+        thruster.writeMicroseconds(currentValue);
+      }
+    }
+
+    void constantTask(){ // run in main loop: limit checking
+      hitLeftLimit(); hitRightLimit();
+    }
+};
+
+class ArmRotation: public Output { //todo
+
+  protected:
+    // Represents a servo controlling arm rotation
+    Servo servo;
+    const int stoppedValue=1500;
+    
+ public:
+
+    ArmRotation (int inputPin, String partID) {
+      this->partID = partID;
+
+      // Set limit and starting values
+      maxValue = 1900;
+      minValue = 1100;
+      currentValue = stoppedValue;
+      servo.attach(inputPin); // Associate the servo with the specified pin
+      pin = inputPin; // Record the associated pin
+      servo.writeMicroseconds(stoppedValue); // Set value to "stopped"
+    }
+
+
+    int setValue(int inputValue) {
+      // call parent logic (keeps value within preset boundary)
+      int value = Output::setValue(inputValue);
+      // Actually control the device
+      servo.writeMicroseconds(value);
+      // Return the set value
+      return value;
+    }
+};
 
 /* ==========================Mapper========================== */
 
@@ -261,7 +350,7 @@ class Mapper {
     // a for Ard-A (Arm)
     const static int aCount=3;
     Output* aObjects[aCount];
-    String aIDs[aCount] = {"Mot-R", "Mot-G", "Mot-G"};
+    String aIDs[aCount] = {"Mot-R", "Mot-G", "Mot-F"};
 
     // m for Ard-M (Micro ROV)
     const static int mCount=2;
@@ -283,7 +372,8 @@ class Mapper {
     }
 
     void mapA(){
-      
+      aObjects[0] = new ArmRotation(2, aIDs[0]);
+      aObjects[1] = new ArmGripper(3, aIDs[1],22,23); //          TODO: init fish box
     }
 
     void mapM(){
@@ -400,7 +490,14 @@ void setup() {
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {
-  // print the string when a newline arrives:
+  // Code to run all the time goes here:
+  if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
+    // This Arduino is for outputting
+    mapper.getOutput(current.key)->constantTask();
+  }
+  
+  
+  // parse the string when a newline arrives:
   if (stringComplete) {
     // Set up JSON parser
     StaticJsonBuffer<100> jsonBuffer;

@@ -34,34 +34,56 @@ bool sensors = false;
 
 class Communication{
   private:
+    static const int elementCount = 100;
+    String key[elementCount];
+    String value[elementCount];
+    int currentPosition = 0; // value of next free space
     
   public:
-    static void sendValue(String device, String value){
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res[device] = value;
-      res.printTo(Serial);
-      Serial.println();
+    void incrementPosition(){
+      // increment currentValue and send if over limit
+      currentPosition++;
+      if(currentPosition>currentPosition){
+        sendAll();
+        currentPosition = 0;
+      }
     }
-    static void sendError(String errorMessage){
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["error"] = errorMessage;
-      res.printTo(Serial);
-      Serial.println();
+    void bufferValue(String device, String incomingValue){
+      // buffer a key value pair to be sent with next load
+      key[currentPosition] = device;
+      value[currentPosition] = incomingValue;
+      incrementPosition();
     }
-    static void sendStatus(String status){
+    void bufferError(String errorMessage){
+      // buffer an error message to be sent with next load
+      key[currentPosition] = "error";
+      value[currentPosition] = errorMessage;
+      incrementPosition();
+    }
+    void sendStatus(String status){
+      // immediately sends current status to pi
       String resString;
       const int capacity = 100;
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
+      res["deviceID"] = arduinoID; // add Arduino ID to every message
       res["status"] = status;
       res.printTo(Serial);
       Serial.println();
+    }
+    void sendAll(){
+      String resString;
+      const int capacity = 1000; // Not sure about this size - probably needs calculating
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["deviceID"] = arduinoID; // add Arduino ID to every message
+      for(int i = 0; i < currentPosition; i++){
+        // prepare all buffered values
+        res[key[i]] = value[i];
+      }
+      res.printTo(Serial);
+      Serial.println();
+      currentPosition = 0;
     }
 };
 
@@ -115,7 +137,7 @@ class Output {
 
       if (value < minValue || value > maxValue) {
         // Send error message saying the incoming value was out of range
-        communication.sendError("Incoming value out of range.");
+        communication.bufferError("Incoming value out of range.");
         return currentValue; // Keep output at same value
       }
       else{
@@ -149,7 +171,7 @@ class IMU: public Input {
       if(!bno.begin())
       {
         // Send error message
-        communication.sendError("IMU BNO055 not found. Check wiring.");
+        communication.bufferError("IMU BNO055 not found. Check wiring.");
       }
       else{
         bno.setExtCrystalUse(true);
@@ -165,17 +187,17 @@ class IMU: public Input {
         bno.getEvent(&event);
         /* Output the floating point data */
         // x
-        communication.sendValue(partID+'x',String(event.orientation.x));
+        communication.bufferValue(partID+'x',String(event.orientation.x));
   
         // y
-        communication.sendValue(partID+'y',String(event.orientation.y));
+        communication.bufferValue(partID+'y',String(event.orientation.y));
   
         // z
-        communication.sendValue(partID+'z',String(event.orientation.z));
+        communication.bufferValue(partID+'z',String(event.orientation.z));
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
-        communication.sendError("IMU BNO055 not initialised.");
+        communication.bufferError("IMU BNO055 not initialised.");
       }
       
     }
@@ -293,12 +315,12 @@ class Mapper {
       else{
         // Send error message saying the Arduino was not found
         String errorMessage = "getOutput method doesn't have an option for "+arduinoID;
-        communication.sendError(errorMessage);
+        communication.bufferError(errorMessage);
         return new Output();
       }
       // Send error message saying the device was not found
       String errorMessage = "Output device ID is not valid: "+jsonID;
-      communication.sendError(errorMessage);
+      communication.bufferError(errorMessage);
       return new Output();
     }
     
@@ -313,12 +335,12 @@ class Mapper {
       else{
         // Send error message saying the Arduino was not found
         String errorMessage = "getInput method doesn't have an option for "+arduinoID;
-        communication.sendError(errorMessage);
+        communication.bufferError(errorMessage);
         return new Input();
       }
       // Send error message saying the device was not found
       String errorMessage = "Input device ID is not valid: "+jsonID;
-      communication.sendError(errorMessage);
+      communication.bufferError(errorMessage);
     }
 
     int getNumberOfInputs(){
@@ -333,7 +355,7 @@ class Mapper {
       else{
         // Send error message saying the Arduino was not found
         String errorMessage = "Can't get all inputs from a non-input Arduino.";
-        communication.sendError(errorMessage);
+        communication.bufferError(errorMessage);
         return {};
       }
     }
@@ -349,13 +371,13 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =======================Setup function======================= */
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
-
+  arduinoID = "Ard-" + String(char(EEPROM.read(0)));
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
-  arduinoID = "Ard-" + String(char(EEPROM.read(0)));
+
 
   // Map inputs and outputs based on which Arduino this is
   if (arduinoID == "Ard-T") {
@@ -370,6 +392,7 @@ void setup() {
   else if (arduinoID == "Ard-M"){
     mapper.mapM();
   }
+  communication.sendAll();
   communication.sendStatus("Arduino Initialised. Waiting for input.");
 }
 
@@ -384,7 +407,8 @@ void loop() {
     JsonObject& root = jsonBuffer.parseObject(inputString);
     // Test if parsing succeeds.
     if (!root.success()) {
-      communication.sendError("JSON parsing failed.");
+      communication.bufferError("JSON parsing failed.");
+      communication.sendAll();
       inputString = "";
       stringComplete = false;
       return;
@@ -393,7 +417,6 @@ void loop() {
     // Act on incoming message accordingly
     if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
       // This Arduino is for outputting
-      // TODO: parse incoming data
       for(const auto& current: root){
         // For each incoming value
         mapper.getOutput(current.key)->setValue(current.value);
@@ -402,16 +425,16 @@ void loop() {
     else if (arduinoID=="Ard-I"){
       // Output all sensor data
       int numberOfInputs = mapper.getNumberOfInputs();
-      //Input* iObjects[numberOfInputs];
-      //iObjects = mapper.getAllInputs()
       for(int i = 0; i < numberOfInputs; i++){
         (*mapper.getAllInputs())[i].getValue();
       }
     }
     else{
-      communication.sendError("Arduino ID not set up. This Arduino will not function");
+      communication.bufferError("Arduino ID not set up. This Arduino will not function");
     }
 
+    // Finish by sending all the values
+    communication.sendAll();
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;

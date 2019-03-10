@@ -32,35 +32,40 @@ bool sensors = false;
 
 // Class to handle sending values back up to the surface
 
-class Communication{
+class Communication{//                                                                                                             <--- TODO: Port to JSON5 (maybe store in array and sort out later)
+  // the "send" methods push data but without a line ending. To have the Pi parse data, you need to finish with .submit
+  // TODO put all messages in same message
+  
   private:
+    //DynamicJsonDocument res(1024);
+//  static String resString;
+//  static const int capacity = 100;
+//  static StaticJsonBuffer<capacity> jb;
+//  static JsonObject& res;
+
+  void beginNewMessage(){
+    //root = jsonBuffer.createObject();
+     //res = jb.createObject();
+     //res = jb.createObject();
+  }
     
   public:
-    static void sendValue(String device, String value){
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
+    void sendValue(String device, String value){
+      DynamicJsonDocument res(1024);
       res[device] = value;
-      res.printTo(Serial);
-      Serial.println();
+      
     }
-    static void sendError(String errorMessage){
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
+    void sendError(String errorMessage){
+      DynamicJsonDocument res(1024);
       res["error"] = errorMessage;
-      res.printTo(Serial);
-      Serial.println();
     }
-    static void sendStatus(String status){
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
+    void sendStatus(String status){
+      DynamicJsonDocument res(1024);
       res["status"] = status;
-      res.printTo(Serial);
+    }
+    void submit(){
+      DynamicJsonDocument res(1024);
+      serializeJson(res,Serial);
       Serial.println();
     }
 };
@@ -380,10 +385,9 @@ void loop() {
   // print the string when a newline arrives:
   if (stringComplete) {
     // Set up JSON parser
-    StaticJsonBuffer<100> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(inputString);
-    // Test if parsing succeeds.
-    if (!root.success()) {
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, inputString);
+    if (error){
       communication.sendError("JSON parsing failed.");
       inputString = "";
       stringComplete = false;
@@ -394,7 +398,23 @@ void loop() {
     if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
       // This Arduino is for outputting
       // TODO: parse incoming data
-      for(const auto& current: root){
+      Serial.println(doc.size());
+      //Serial.println(variant[0]);
+      
+      for(int i = 0; i < doc.size(); i++){
+        Serial.println("Loop");
+        Serial.println(doc.getElement(i).isNull());
+        Serial.println(doc.getElement(i).getElement(0).isNull());
+        Serial.println(doc.getElement(i).as<String>());
+        //Serial.println(doc.getElement(i).getElement(1));
+        //mapper.getOutput(doc.getElement(i).getElement(0))->setValue(doc.getElement(i).getElement(1));
+        
+      }
+
+
+      //for_each(doc.begin(), doc.end(),mapper.getOutput(current.key)->setValue(current.value)) 
+      
+      for(auto current: doc){ //                                          <--- TODO: Port to JSON5
         // For each incoming value
         mapper.getOutput(current.key)->setValue(current.value);
       }

@@ -159,19 +159,19 @@ class IMU: public Input { //                                                    
 
   protected:
     bool initialised = false;
-    Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
+    Adafruit_BNO055 imu = Adafruit_BNO055(55); // IMU device
 
   public:
     IMU(int inputPin, String incomingPartID){
       // Run parent method
       partID = incomingPartID;
-      if(!bno.begin())
+      if(!imu.begin())
       {
         // Send error message
         communication.bufferError("IMU BNO055 not found. Check wiring.");
       }
       else{
-        bno.setExtCrystalUse(true);
+        imu.setExtCrystalUse(true);
         initialised = true;
       }
     }
@@ -181,16 +181,20 @@ class IMU: public Input { //                                                    
         // Send x, y, z data from this sensor
         /* Get a new sensor event */
         sensors_event_t event;
-        bno.getEvent(&event);
+        imu.getEvent(&event);
         /* Output the floating point data */
         // x
-        communication.bufferValue(this->partID+'x',String(event.orientation.x));
+        communication.bufferValue(this->partID+"-X",String(event.orientation.x));
   
         // y
-        communication.bufferValue(this->partID+'y',String(event.orientation.y));
+        communication.bufferValue(this->partID+"-Y",String(event.orientation.y));
   
         // z
-        communication.bufferValue(this->partID+'z',String(event.orientation.z));
+        communication.bufferValue(this->partID+"-Z",String(event.orientation.z));
+
+        // Get temperature recorded by IMU
+        int8_t temp = imu.getTemp();
+        communication.bufferValue(this->partID+"-Temp",String(temp));
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -331,6 +335,38 @@ class ArmRotation: public Output { //todo
     }
 };
 
+class Lamp: public Output { //todo
+
+  protected:
+    // Represents a dimmable light
+    Servo led;
+    const int stoppedValue=1100;
+    
+ public:
+
+    ArmRotation (int inputPin, String partID) {
+      this->partID = partID;
+
+      // Set limit and starting values
+      maxValue = 1900;
+      minValue = 1100;
+      currentValue = stoppedValue;
+      led.attach(inputPin); // Associate with the specified pin
+      pin = inputPin; // Record the associated pin
+      led.writeMicroseconds(stoppedValue); // Set value to "stopped"
+    }
+
+
+    int setValue(int inputValue) {
+      // call parent logic (keeps value within preset boundary)
+      int value = Output::setValue(inputValue);
+      // Actually control the device
+      led.writeMicroseconds(value);
+      // Return the set value
+      return value;
+    }
+};
+
 /* ==========================Mapper========================== */
 
 // Maps device ID strings to object pointers
@@ -377,7 +413,8 @@ class Mapper {
     }
 
     void mapM(){
-      mObjects[0] = new Thruster(2,mIDs[0]);
+      mObjects[0] = new Thruster(3,mIDs[0]);
+      mObjects[0] = new Lamp(6,mIDs[1]);
     }
     
     Output* getOutput(String jsonID){
@@ -493,14 +530,14 @@ void loop() {
   // Code to run all the time goes here:
   if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
     // This Arduino is for outputting
-    mapper.getOutput(current.key)->constantTask();
+    mapper.getOutput("Mot-G")->constantTask(); // Keep checking if limit hit
   }
   
   
   // parse the string when a newline arrives:
   if (stringComplete) {
     // Set up JSON parser
-    StaticJsonBuffer<100> jsonBuffer;
+    StaticJsonBuffer<1000> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
     // Test if parsing succeeds.
     if (!root.success()) {

@@ -344,7 +344,7 @@ class Lamp: public Output { //todo
     
  public:
 
-    ArmRotation (int inputPin, String partID) {
+    Lamp (int inputPin, String partID) {
       this->partID = partID;
 
       // Set limit and starting values

@@ -21,6 +21,8 @@ bool stringComplete = false;  // whether a full JSON string has been received
 String arduinoID = "";
 bool sensors = false;
 
+unsigned long lastMessage;
+
 
 // TODO set up some sort of mapping from the JSON ID to device object
 
@@ -118,6 +120,7 @@ class Output {
     int maxValue=0;
     int minValue=0;
     int currentValue=0;
+    int stoppedValue=0;
     int pin=0; // The physical pin this is associated with
     String partID="part ID not set";
 
@@ -149,6 +152,10 @@ class Output {
 
     virtual void constantTask(){
       // Something which needs to be run all the time
+    }
+
+    virtual void turnOff(){
+      // Switch device off - for safety
     }
 };
 
@@ -240,6 +247,12 @@ class Thruster: public Output {
       // Return the set value
       return value;
     }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      currentValue = stoppedValue;
+      thruster.writeMicroseconds(stoppedValue);
+    }
 };
 
 
@@ -302,6 +315,12 @@ class ArmGripper: public Output {
 
     void constantTask(){ // run in main loop: limit checking
       hitLeftLimit(); hitRightLimit();
+    }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      currentValue = stoppedValue;
+      thruster.writeMicroseconds(stoppedValue);
     }
 };
 
@@ -488,6 +507,38 @@ class Mapper {
         return {};
       }
     }
+
+    int getNumberOfOutputs(){
+      if(arduinoID == "Ard_T"){
+        return tCount;
+      }
+      else if(arduinoID == "Ard_A"){
+        return aCount;
+      }
+      else if(arduinoID == "Ard_M"){
+        return mCount;
+      }
+      return 0;
+    }
+
+    Output** getAllOutputs(){
+      // Return pointer to the array of pointers
+      if(arduinoID == "Ard_T"){
+        return tObjects;
+      }
+      else if(arduinoID == "Ard_A"){
+        return aObjects;
+      }
+      else if(arduinoID == "Ard_M"){
+        return mObjects;
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "Can't get all outputs from a non-output Arduino.";
+        communication.bufferError(errorMessage);
+        return {};
+      }
+    }
     
 };
 
@@ -515,14 +566,16 @@ void setup() {
   else if (arduinoID == "Ard_I"){
     mapper.mapI();
   }
-  if (arduinoID == "Ard_A") {
+  else if (arduinoID == "Ard_A") {
     mapper.mapA();
   }
   else if (arduinoID == "Ard_M"){
     mapper.mapM();
   }
   communication.sendAll();
+  Serial.println("test");
   communication.sendStatus("Arduino Active.");
+  Serial.println("test");
 }
 
 /* ============================================================ */
@@ -533,6 +586,17 @@ void loop() {
   if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
     // This Arduino is for outputting
     mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
+
+    // Check if it's been too long since last message - bad sign
+    // Turn everything off
+    if(millis() - lastMessage > 3000){ // 3 second limit
+      communication.bufferError("No incoming data received for more than 3 seconds. Switching all devices off");
+      int numberOfOutputs = mapper.getNumberOfOutputs();
+      for(int i = 0; i < numberOfOutputs; i++){
+        (*mapper.getAllOutputs())[i].turnOff();
+        delay(2000); // Delay between turning outputs off to prevent current rush.
+      }
+    }
   }
   else if(arduinoID=="Ard_I"){
     // Output all sensor data
@@ -578,6 +642,10 @@ void loop() {
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
+
+    // Update time last message received
+    lastMessage = millis();
+    
   }
 }
 

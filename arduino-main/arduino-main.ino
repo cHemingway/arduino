@@ -522,7 +522,7 @@ void setup() {
     mapper.mapM();
   }
   communication.sendAll();
-  communication.sendStatus("Arduino Initialised. Waiting for input.");
+  communication.sendStatus("Arduino Active.");
 }
 
 /* ============================================================ */
@@ -596,7 +596,5 @@ void serialEvent() {
       break;
     }
     inputString += inChar;
-    // if the incoming character is a close brace, set a flag so the main loop will parse the whole string
-
   }
 }

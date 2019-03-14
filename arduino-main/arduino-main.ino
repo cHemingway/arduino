@@ -375,22 +375,22 @@ class Lamp: public Output { //todo
 
 class Mapper {
   private:
-    // t for Ard-T (Thrusters)
+    // t for Ard_T (Thrusters)
     const static int tCount=8;
     Output* tObjects[tCount];
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
 
-    // i for Ard-I (Input)
+    // i for Ard_I (Input)
     const static int iCount=1;
     Input* iObjects[iCount];
     String iIDs[iCount] = {"Sen_IMU"};
 
-    // a for Ard-A (Arm)
+    // a for Ard_A (Arm)
     const static int aCount=3;
     Output* aObjects[aCount];
     String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
 
-    // m for Ard-M (Micro ROV)
+    // m for Ard_M (Micro ROV)
     const static int mCount=2;
     Output* mObjects[mCount];
     String mIDs[mCount] = {"Thr_M", "LED_M"};
@@ -420,21 +420,21 @@ class Mapper {
     }
     
     Output* getOutput(String jsonID){
-      if(arduinoID=="Ard-T"){
+      if(arduinoID=="Ard_T"){
         for(int i = 0; i < tCount; i++){
           if(jsonID == tIDs[i]){
             return tObjects[i];
           }
         }
       }
-      else if(arduinoID=="Ard-A"){
+      else if(arduinoID=="Ard_A"){
         for(int i = 0; i < aCount; i++){
           if(jsonID == aIDs[i]){
             return aObjects[i];
           }
         }
       }
-      else if(arduinoID=="Ard-M"){
+      else if(arduinoID=="Ard_M"){
         for(int i = 0; i < mCount; i++){
           if(jsonID == mIDs[i]){
             return mObjects[i];
@@ -454,7 +454,7 @@ class Mapper {
     }
     
     Input* getInput(String jsonID){
-      if(arduinoID=="Ard-I"){
+      if(arduinoID=="Ard_I"){
         for(int i = 0; i < iCount; i++){
           if(jsonID == iIDs[i]){
             return iObjects[i];
@@ -478,7 +478,7 @@ class Mapper {
 
     Input** getAllInputs(){
       // Return pointer to the array of pointers
-      if(arduinoID=="Ard-I"){
+      if(arduinoID=="Ard_I"){
         return iObjects;
       }
       else{
@@ -500,7 +500,7 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =======================Setup function======================= */
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
-  arduinoID = "Ard-" + String(char(EEPROM.read(0)));
+  arduinoID = "Ard_" + String(char(EEPROM.read(0)));
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
@@ -509,16 +509,16 @@ void setup() {
 
 
   // Map inputs and outputs based on which Arduino this is
-  if (arduinoID == "Ard-T") {
+  if (arduinoID == "Ard_T") {
     mapper.mapT();
   }
-  else if (arduinoID == "Ard-I"){
+  else if (arduinoID == "Ard_I"){
     mapper.mapI();
   }
-  if (arduinoID == "Ard-A") {
+  if (arduinoID == "Ard_A") {
     mapper.mapA();
   }
-  else if (arduinoID == "Ard-M"){
+  else if (arduinoID == "Ard_M"){
     mapper.mapM();
   }
   communication.sendAll();
@@ -530,11 +530,11 @@ void setup() {
 /* ======Runs continuously after setup function finishes======= */
 void loop() {
   // Code to run all the time goes here:
-  if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
+  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
     // This Arduino is for outputting
-    mapper.getOutput("Mot-G")->constantTask(); // Keep checking if limit hit
+    mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
   }
-  else if(arduinoID=="Ard-I"){
+  else if(arduinoID=="Ard_I"){
     // Output all sensor data
       int numberOfInputs = mapper.getNumberOfInputs();
       for(int i = 0; i < numberOfInputs; i++){
@@ -559,14 +559,14 @@ void loop() {
     }
 
     // Act on incoming message accordingly
-    if(arduinoID=="Ard-T" || arduinoID=="Ard-M" || arduinoID=="Ard-A"){
+    if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
       // This Arduino is for outputting
       for(const auto& current: root){
         // For each incoming value
         mapper.getOutput(current.key)->setValue(current.value);
       }
     }
-    else if (arduinoID=="Ard-I"){
+    else if (arduinoID=="Ard_I"){
       
     }
     else{

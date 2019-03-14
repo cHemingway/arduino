@@ -56,7 +56,8 @@ class Communication{
     }
     void bufferError(String errorMessage){
       // buffer an error message to be sent with next load
-      key[currentPosition] = "error";
+      String tempKey = "error_" + String(char(EEPROM.read(0)));
+      key[currentPosition] = tempKey;
       value[currentPosition] = errorMessage;
       incrementPosition();
     }
@@ -67,6 +68,7 @@ class Communication{
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
+      String tempKey = "status_" + String(char(EEPROM.read(0)));
       res["status"] = status;
       res.printTo(Serial);
       Serial.println();
@@ -184,17 +186,17 @@ class IMU: public Input { //                                                    
         imu.getEvent(&event);
         /* Output the floating point data */
         // x
-        communication.bufferValue(this->partID+"-X",String(event.orientation.x));
+        communication.bufferValue(this->partID+"_X",String(event.orientation.x));
   
         // y
-        communication.bufferValue(this->partID+"-Y",String(event.orientation.y));
+        communication.bufferValue(this->partID+"_Y",String(event.orientation.y));
   
         // z
-        communication.bufferValue(this->partID+"-Z",String(event.orientation.z));
+        communication.bufferValue(this->partID+"_Z",String(event.orientation.z));
 
         // Get temperature recorded by IMU
         int8_t temp = imu.getTemp();
-        communication.bufferValue(this->partID+"-Temp",String(temp));
+        communication.bufferValue(this->partID+"_Temp",String(temp));
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -376,22 +378,22 @@ class Mapper {
     // t for Ard-T (Thrusters)
     const static int tCount=8;
     Output* tObjects[tCount];
-    String tIDs[tCount] = {"Thr-FP", "Thr-FS", "Thr-AP", "Thr-AS", "Thr-TFP", "Thr-TFS", "Thr-TAP", "Thr-TAS"};
+    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
 
     // i for Ard-I (Input)
     const static int iCount=1;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen-IMU"};
+    String iIDs[iCount] = {"Sen_IMU"};
 
     // a for Ard-A (Arm)
     const static int aCount=3;
     Output* aObjects[aCount];
-    String aIDs[aCount] = {"Mot-R", "Mot-G", "Mot-F"};
+    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
 
     // m for Ard-M (Micro ROV)
     const static int mCount=2;
     Output* mObjects[mCount];
-    String mIDs[mCount] = {"Thr-M", "LED-M"};
+    String mIDs[mCount] = {"Thr_M", "LED_M"};
 
     
   public:
@@ -532,6 +534,14 @@ void loop() {
     // This Arduino is for outputting
     mapper.getOutput("Mot-G")->constantTask(); // Keep checking if limit hit
   }
+  else if(arduinoID=="Ard-I"){
+    // Output all sensor data
+      int numberOfInputs = mapper.getNumberOfInputs();
+      for(int i = 0; i < numberOfInputs; i++){
+        (*mapper.getAllInputs())[i].getValue();
+      }
+      communication.sendAll();
+  }
   
   
   // parse the string when a newline arrives:
@@ -557,11 +567,7 @@ void loop() {
       }
     }
     else if (arduinoID=="Ard-I"){
-      // Output all sensor data
-      int numberOfInputs = mapper.getNumberOfInputs();
-      for(int i = 0; i < numberOfInputs; i++){
-        (*mapper.getAllInputs())[i].getValue();
-      }
+      
     }
     else{
       communication.bufferError("Arduino ID not set up. This Arduino will not function");

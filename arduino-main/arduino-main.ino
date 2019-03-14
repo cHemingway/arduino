@@ -69,7 +69,7 @@ class Communication{
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
       String tempKey = "status_" + String(char(EEPROM.read(0)));
-      res["status"] = status;
+      res[tempKey] = status;
       res.printTo(Serial);
       Serial.println();
     }

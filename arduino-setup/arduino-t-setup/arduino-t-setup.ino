@@ -3,13 +3,11 @@
 void setup() {
   // initialize the LED pin as an output.
   pinMode(13, OUTPUT);
- // turn the LED off before success
+  // turn the LED off before success
   digitalWrite(13, LOW);
-
-  EEPROM.write(0, 'O'); // Mark this as Arduino O for Output
-  EEPROM.write(1, '1');
- 
- // turn the LED on when we're done
+  // Mark this as Arduino T for Thruster
+  EEPROM.write(0, 'T'); 
+  // turn the LED on when we're done
   digitalWrite(13, HIGH);
 }
 

@@ -21,7 +21,6 @@ bool stringComplete = false;  // whether a full JSON string has been received
 String arduinoID = "";
 bool sensors = false;
 
-Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
 
 // TODO set up some sort of mapping from the JSON ID to device object
 
@@ -29,6 +28,70 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55); // IMU device
 /* =======================Set up classes======================= */
 /* ============================================================ */
 
+/* ==========================Communication========================== */
+
+// Class to handle sending values back up to the surface
+
+class Communication{
+  private:
+    static const int elementCount = 100;
+    String key[elementCount];
+    String value[elementCount];
+    int currentPosition = 0; // value of next free space
+    
+  public:
+    void incrementPosition(){
+      // increment currentValue and send if over limit
+      currentPosition++;
+      if(currentPosition>currentPosition){
+        sendAll();
+        currentPosition = 0;
+      }
+    }
+    void bufferValue(String device, String incomingValue){
+      // buffer a key value pair to be sent with next load
+      key[currentPosition] = device;
+      value[currentPosition] = incomingValue;
+      incrementPosition();
+    }
+    void bufferError(String errorMessage){
+      // buffer an error message to be sent with next load
+      String tempKey = "error_" + String(char(EEPROM.read(0)));
+      key[currentPosition] = tempKey;
+      value[currentPosition] = errorMessage;
+      incrementPosition();
+    }
+    void sendStatus(String status){
+      // immediately sends current status to pi
+      String resString;
+      const int capacity = 100;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["deviceID"] = arduinoID; // add Arduino ID to every message
+      String tempKey = "status_" + String(char(EEPROM.read(0)));
+      res[tempKey] = status;
+      res.printTo(Serial);
+      Serial.println();
+    }
+    void sendAll(){
+      String resString;
+      const int capacity = 1000; // Not sure about this size - probably needs calculating
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["deviceID"] = arduinoID; // add Arduino ID to every message
+      for(int i = 0; i < currentPosition; i++){
+        // prepare all buffered values
+        res[key[i]] = value[i];
+      }
+      res.printTo(Serial);
+      Serial.println();
+      currentPosition = 0;
+    }
+};
+
+Communication communication;
+
+/* ==========================Abstract========================== */
 
 
 class Input {
@@ -36,90 +99,15 @@ class Input {
 
   protected:
     int pin=0; // The physical pin this is associated with
-    String partID="part ID not set";
+    String partID="Part ID not set.";
 
   public:
-    virtual void init(int inputPin, String incomingPartID) {
-      partID = incomingPartID;
-      // Run this method in setup() to initialise a device
+    Input() {
+      //Empty constructor to create harmless input
     }
 
     virtual int getValue() {
       // Get the current value of this device (EG: Temperature)
-    }
-};
-
-class IMU: public Input {
-    // Designed to be a generic interface for all output devices.
-
-  protected:
-    bool initialised = false;
-
-  public:
-    virtual void init(int inputPin, String incomingPartID) {
-      // Run parent method
-      Input::init(inputPin, incomingPartID);
-      if(!bno.begin())
-      {
-        // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "IMU BNO055 not found. Check wiring.";
-        res.printTo(Serial);
-      }
-      else{
-        bno.setExtCrystalUse(true);
-        initialised = true;
-      }
-    }
-
-    virtual int getValue() {
-      if(initialised){
-        // Send x, y, z data from this sensor
-        /* Get a new sensor event */
-        sensors_event_t event;
-        bno.getEvent(&event);
-        /* Output the floating point data */
-        // x
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "sensor";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID+'x';
-        res["value"] = event.orientation.x;
-        res.printTo(Serial);
-  
-        // y
-        res["partID"] = partID+'y';
-        res["value"] = event.orientation.y;
-        res.printTo(Serial);
-  
-        // z
-        res["partID"] = partID+'z';
-        res["value"] = event.orientation.z;
-        res.printTo(Serial);
-      }
-      else{
-        // Throw error because this sensor has not yet been initialised properly
-        // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "Sensor not initialised.";
-        res.printTo(Serial);
-      }
-      
     }
 };
 
@@ -134,38 +122,22 @@ class Output {
     String partID="part ID not set";
 
   public:
-    virtual void init(int inputPin, String incomingPartID) {
-      partID = incomingPartID;
-      // Run this method in setup() to initialise a device
+    Output() {
+      //Empty constructor to create harmless output
     }
 
     virtual int setValue(int inputValue) {
       int value = inputValue;
       // Method to set thrust capped to min and max
-      bool outOfRange = false;
-      if (value > maxValue) {
-        value = maxValue;
-        outOfRange = true;
-      }
-      else if (value < minValue) {
-        value = minValue;
-        outOfRange = true;
-      }
 
-      if (outOfRange) {
+      if (value < minValue || value > maxValue) {
         // Send error message saying the incoming value was out of range
-        String resString;
-        const int capacity = 100;
-        StaticJsonBuffer<capacity> jb;
-        JsonObject& res = jb.createObject();
-        res["mType"] = "error";
-        res["deviceID"] = arduinoID;
-        res["partID"] = partID;
-        res["value"] = "Incoming value out of range.";
-        res.printTo(Serial);
+        communication.bufferError("Incoming value out of range.");
+        return currentValue; // Keep output at same value
       }
-
-      currentValue = value;
+      else{
+        currentValue = value;
+      }
       return value;
       // Then set the value on the device
     }
@@ -174,31 +146,91 @@ class Output {
       // Get the current value of this device (EG: Servo position)
       return currentValue;
     }
+
+    virtual void constantTask(){
+      // Something which needs to be run all the time
+    }
 };
+
+
+/* ===========================Inputs=========================== */
+
+
+class IMU: public Input { //                                                             TODO: Output all the things
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    bool initialised = false;
+    Adafruit_BNO055 imu = Adafruit_BNO055(55); // IMU device
+
+  public:
+    IMU(int inputPin, String incomingPartID){
+      // Run parent method
+      partID = incomingPartID;
+      if(!imu.begin())
+      {
+        // Send error message
+        communication.bufferError("IMU BNO055 not found. Check wiring.");
+      }
+      else{
+        imu.setExtCrystalUse(true);
+        initialised = true;
+      }
+    }
+
+    int getValue() {
+      if(initialised){
+        // Send x, y, z data from this sensor
+        /* Get a new sensor event */
+        sensors_event_t event;
+        imu.getEvent(&event);
+        /* Output the floating point data */
+        // x
+        communication.bufferValue(this->partID+"_X",String(event.orientation.x));
+  
+        // y
+        communication.bufferValue(this->partID+"_Y",String(event.orientation.y));
+  
+        // z
+        communication.bufferValue(this->partID+"_Z",String(event.orientation.z));
+
+        // Get temperature recorded by IMU
+        int8_t temp = imu.getTemp();
+        communication.bufferValue(this->partID+"_Temp",String(temp));
+      }
+      else{
+        // Throw error because this sensor has not yet been initialised properly
+        communication.bufferError("IMU BNO055 not initialised.");
+      }
+      
+    }
+};
+
+
+/* ===========================Outputs=========================== */
+
 
 class Thruster: public Output {
 
   protected:
     // Represents a thruster controlled by an ESC
     Servo thruster; // Using the Servo class because it uses the same values as our ESCs
+    const int stoppedValue=1500;
 
   public:
 
-    void init(int inputPin, String partID) {
-      // Run this method in setup() to initialise a thruster
-
-      // Run parent method
-      Output::init(inputPin, partID);
+    Thruster (int inputPin, String partID) {
+      this->partID = partID;
 
       // Set limit and starting values
       maxValue = 1900;
       minValue = 1100;
-      currentValue = 1500;
-
+      currentValue = stoppedValue;
       thruster.attach(inputPin); // Associate the thruster with the specified pin
       pin = inputPin; // Record the associated pin
-      thruster.writeMicroseconds(1500); // Set value to "stopped"
+      thruster.writeMicroseconds(stoppedValue); // Set value to "stopped"
     }
+
 
     int setValue(int inputValue) {
       // call parent logic (keeps value within preset boundary)
@@ -210,29 +242,90 @@ class Thruster: public Output {
     }
 };
 
-class ArmMotor: public Output {
+
+class ArmGripper: public Output {
 
   protected:
-    // Represents a thruster controlled by an ESC
-    Servo servo; // Using the Servo class for servos
+    // Represents a thruster motor opening and closing gripper
+    Servo thruster;
+    int leftLimit, rightLimit;
+    const int stoppedValue=1500;
 
-  public:
+ public:
 
-    void init(int inputPin, String partID) {
-      // Run this method in setup() to initialise a thruster
-
-      // Run parent method
-      Output::init(inputPin, partID);
+    ArmGripper(int inputPin, String partID, int limitPinLeft, int limitPinRight ) {
+      this->partID = partID;
 
       // Set limit and starting values
       maxValue = 1900;
       minValue = 1100;
-      currentValue = 1500;
-
-      servo.attach(inputPin); // Associate the thruster with the specified pin
+      currentValue = stoppedValue;
+      
+      thruster.attach(inputPin); // Associate the motor with the specified pin
       pin = inputPin; // Record the associated pin
-      servo.writeMicroseconds(1500); // Set value to "stopped"
+      thruster.writeMicroseconds(stoppedValue); // Set value to "stopped"
+
+      // Set limit switches
+      leftLimit = limitPinLeft;
+      rightLimit = limitPinRight;
+      pinMode(limitPinLeft,INPUT_PULLUP);
+      pinMode(limitPinRight,INPUT_PULLUP);
     }
+
+    int setValue(int inputValue) {//                                                    TODO: in main loop check if hit limit all the time (update: done - please test)
+
+        // call parent logic (keeps value within preset boundary)
+        int value = Output::setValue(inputValue); // set currentValue accordingly
+        if(hitLeftLimit() || hitRightLimit()){ // Checks if limit switch pressed and acts accordingly
+          return currentValue;
+        }
+        // Actually control the device
+        thruster.writeMicroseconds(value);
+        // Return the set value
+        return value;
+    }
+
+    bool hitLeftLimit(){ // check if a limit switch was hit
+      if(digitalRead(leftLimit)==LOW && currentValue<stoppedValue){ // Low = pressed
+        communication.bufferError("Left gripper limit hit. Motor stopped.");
+        currentValue = stoppedValue;
+        thruster.writeMicroseconds(currentValue);
+      }
+    }
+    bool hitRightLimit(){ // check if a limit switch was hit
+      if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
+        communication.bufferError("Right gripper limit hit. Motor stopped.");
+        currentValue = stoppedValue;
+        thruster.writeMicroseconds(currentValue);
+      }
+    }
+
+    void constantTask(){ // run in main loop: limit checking
+      hitLeftLimit(); hitRightLimit();
+    }
+};
+
+class ArmRotation: public Output { //todo
+
+  protected:
+    // Represents a servo controlling arm rotation
+    Servo servo;
+    const int stoppedValue=1500;
+    
+ public:
+
+    ArmRotation (int inputPin, String partID) {
+      this->partID = partID;
+
+      // Set limit and starting values
+      maxValue = 1900;
+      minValue = 1100;
+      currentValue = stoppedValue;
+      servo.attach(inputPin); // Associate the servo with the specified pin
+      pin = inputPin; // Record the associated pin
+      servo.writeMicroseconds(stoppedValue); // Set value to "stopped"
+    }
+
 
     int setValue(int inputValue) {
       // call parent logic (keeps value within preset boundary)
@@ -244,149 +337,247 @@ class ArmMotor: public Output {
     }
 };
 
-class Mapper {
-  protected:
-    const static int numberOfOutputs=12;
-    static Output OutputObjects[numberOfOutputs];
-    static String OutputIDs[numberOfOutputs];
+class Lamp: public Output { //todo
 
-    const static int numberOfInputs=12;
-    static Input InputObjects[numberOfInputs];
-    static String InputIDs[numberOfInputs];
+  protected:
+    // Represents a dimmable light
+    Servo led;
+    const int stoppedValue=1100;
+    
+ public:
+
+    Lamp (int inputPin, String partID) {
+      this->partID = partID;
+
+      // Set limit and starting values
+      maxValue = 1900;
+      minValue = 1100;
+      currentValue = stoppedValue;
+      led.attach(inputPin); // Associate with the specified pin
+      pin = inputPin; // Record the associated pin
+      led.writeMicroseconds(stoppedValue); // Set value to "stopped"
+    }
+
+
+    int setValue(int inputValue) {
+      // call parent logic (keeps value within preset boundary)
+      int value = Output::setValue(inputValue);
+      // Actually control the device
+      led.writeMicroseconds(value);
+      // Return the set value
+      return value;
+    }
+};
+
+/* ==========================Mapper========================== */
+
+// Maps device ID strings to object pointers
+
+class Mapper {
+  private:
+    // t for Ard_T (Thrusters)
+    const static int tCount=8;
+    Output* tObjects[tCount];
+    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
+
+    // i for Ard_I (Input)
+    const static int iCount=1;
+    Input* iObjects[iCount];
+    String iIDs[iCount] = {"Sen_IMU"};
+
+    // a for Ard_A (Arm)
+    const static int aCount=3;
+    Output* aObjects[aCount];
+    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
+
+    // m for Ard_M (Micro ROV)
+    const static int mCount=2;
+    Output* mObjects[mCount];
+    String mIDs[mCount] = {"Thr_M", "LED_M"};
+
     
   public:
-    static void mapOutputs(){
-      
+    void mapT(){
+      // Map and initialise thrusters
+      for ( int i = 0; i < tCount; i++) {
+        tObjects[i] = new Thruster(2+i, tIDs[i]);
+      }
     }
-    static void mapInputs(){
-      
+    
+    void mapI(){
+      // Map and initialise inputs
+      iObjects[0] = new IMU(0,iIDs[0]);
     }
-    static Output* getOutput(String jsonID){
-      for(int i = 0; i < numberOfOutputs; i++){
-        if(jsonID == OutputIDs[i]){
-          return &OutputObjects[i];
+
+    void mapA(){
+      aObjects[0] = new ArmRotation(2, aIDs[0]);
+      aObjects[1] = new ArmGripper(3, aIDs[1],22,23); //          TODO: init fish box
+    }
+
+    void mapM(){
+      mObjects[0] = new Thruster(3,mIDs[0]);
+      mObjects[0] = new Lamp(6,mIDs[1]);
+    }
+    
+    Output* getOutput(String jsonID){
+      if(arduinoID=="Ard_T"){
+        for(int i = 0; i < tCount; i++){
+          if(jsonID == tIDs[i]){
+            return tObjects[i];
+          }
         }
       }
-
-      // Send error message saying the device was not found
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["mType"] = "error";
-      res["deviceID"] = arduinoID;
-      res["partID"] = jsonID;
-      res["value"] = "This partID does not exist.";
-      res.printTo(Serial);
-    }
-    static Input* getInput(String jsonID){
-      for(int i = 0; i < numberOfInputs; i++){
-        if(jsonID == InputIDs[i]){
-          return &InputObjects[i];
+      else if(arduinoID=="Ard_A"){
+        for(int i = 0; i < aCount; i++){
+          if(jsonID == aIDs[i]){
+            return aObjects[i];
+          }
         }
       }
-
+      else if(arduinoID=="Ard_M"){
+        for(int i = 0; i < mCount; i++){
+          if(jsonID == mIDs[i]){
+            return mObjects[i];
+          }
+        }
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "getOutput method doesn't have an option for "+arduinoID;
+        communication.bufferError(errorMessage);
+        return new Output();
+      }
       // Send error message saying the device was not found
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["mType"] = "error";
-      res["deviceID"] = arduinoID;
-      res["partID"] = jsonID;
-      res["value"] = "This partID does not exist.";
-      res.printTo(Serial);
+      String errorMessage = "Output device ID is not valid: "+jsonID;
+      communication.bufferError(errorMessage);
+      return new Output();
+    }
+    
+    Input* getInput(String jsonID){
+      if(arduinoID=="Ard_I"){
+        for(int i = 0; i < iCount; i++){
+          if(jsonID == iIDs[i]){
+            return iObjects[i];
+          }
+        }
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "getInput method doesn't have an option for "+arduinoID;
+        communication.bufferError(errorMessage);
+        return new Input();
+      }
+      // Send error message saying the device was not found
+      String errorMessage = "Input device ID is not valid: "+jsonID;
+      communication.bufferError(errorMessage);
+    }
+
+    int getNumberOfInputs(){
+      return iCount;
+    }
+
+    Input** getAllInputs(){
+      // Return pointer to the array of pointers
+      if(arduinoID=="Ard_I"){
+        return iObjects;
+      }
+      else{
+        // Send error message saying the Arduino was not found
+        String errorMessage = "Can't get all inputs from a non-input Arduino.";
+        communication.bufferError(errorMessage);
+        return {};
+      }
     }
     
 };
+
+Mapper mapper; // Declare a new mapper object to map IDs to devices
+
+
 
 
 /* ============================================================ */
 /* =======================Setup function======================= */
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
-
-
+  arduinoID = "Ard_" + String(char(EEPROM.read(0)));
   // initialize serial:
   Serial.begin(9600);
+  communication.sendStatus("Arduino Booting.");
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
-  arduinoID = "Ard-" + String(char(EEPROM.read(0)));
 
-  if (arduinoID == "Ard-O") {
-    // This is an output Arduino
 
-    // TODO: Set up thrusters
+  // Map inputs and outputs based on which Arduino this is
+  if (arduinoID == "Ard_T") {
+    mapper.mapT();
   }
-
-  if (EEPROM.read(1) == '1') {
-    //    TODO: Set bool to true here when not testing so value is always set to '1'
-    sensors = false;
+  else if (arduinoID == "Ard_I"){
+    mapper.mapI();
   }
-
+  if (arduinoID == "Ard_A") {
+    mapper.mapA();
+  }
+  else if (arduinoID == "Ard_M"){
+    mapper.mapM();
+  }
+  communication.sendAll();
+  communication.sendStatus("Arduino Initialised. Waiting for input.");
 }
-
-/* ============================================================ */
-/* ====================Message Functions======================= */
-/* ===========Run when the Arduino receives a message========== */
-
-/*
-   Responds to a ping with the ArduinoID.
-*/
-void pingResponse() {
-  // If the incoming message is a ping then respond with which arduino this is
-  String resString;
-  const int capacity = 100;
-  StaticJsonBuffer<capacity> jb;
-  JsonObject& res = jb.createObject();
-  res["mType"] = "ping";
-  res["deviceID"] = arduinoID;
-  res.printTo(Serial);
-  //      Serial.println(resdeString);
-}
-
 
 /* ============================================================ */
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {
-  // print the string when a newline arrives:
+  // Code to run all the time goes here:
+  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
+    // This Arduino is for outputting
+    mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
+  }
+  else if(arduinoID=="Ard_I"){
+    // Output all sensor data
+      int numberOfInputs = mapper.getNumberOfInputs();
+      for(int i = 0; i < numberOfInputs; i++){
+        (*mapper.getAllInputs())[i].getValue();
+      }
+      communication.sendAll();
+  }
+  
+  
+  // parse the string when a newline arrives:
   if (stringComplete) {
-
     // Set up JSON parser
-    StaticJsonBuffer<100> jsonBuffer;
+    StaticJsonBuffer<1000> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
-
     // Test if parsing succeeds.
     if (!root.success()) {
-      Serial.println("parseObject() failed");// Remove/change this line in production code
+      communication.bufferError("JSON parsing failed.");
+      communication.sendAll();
       inputString = "";
       stringComplete = false;
       return;
     }
 
-    if (root["mType"] == "ping") {
-      pingResponse();
-    }
-    else if (root["mType"] == "servo") {
-      String part = root["partID"];
-      if (part == NULL) {
-        Serial.println("Invalid message format");
-      } else {
-        setServo(root["partID"], root["value"]);
+    // Act on incoming message accordingly
+    if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
+      // This Arduino is for outputting
+      for(const auto& current: root){
+        // For each incoming value
+        mapper.getOutput(current.key)->setValue(current.value);
       }
-    } else {
-      // Else just respond with the received message to ensure it was received
-      Serial.print(inputString);
+    }
+    else if (arduinoID=="Ard_I"){
+      
+    }
+    else{
+      communication.bufferError("Arduino ID not set up. This Arduino will not function");
     }
 
+    // Finish by sending all the values
+    communication.sendAll();
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
-  }
-
-  if (sensors) {
-    readSensor("test");
   }
 }
 

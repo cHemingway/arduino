@@ -532,7 +532,7 @@ void loop() {
   // Code to run all the time goes here:
   if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
     // This Arduino is for outputting
-    mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
+    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
   }
   else if(arduinoID=="Ard_I"){
     // Output all sensor data

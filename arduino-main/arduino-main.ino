@@ -12,6 +12,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
+#include <avr/wdt.h> // watchdog timer
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -22,6 +23,7 @@ String arduinoID = "";
 bool sensors = false;
 
 unsigned long lastMessage;
+bool safetyActive = false;
 
 
 // TODO set up some sort of mapping from the JSON ID to device object
@@ -552,6 +554,7 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
   arduinoID = "Ard_" + String(char(EEPROM.read(0)));
+  
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
@@ -573,43 +576,19 @@ void setup() {
     mapper.mapM();
   }
   communication.sendAll();
-  Serial.println("test");
   communication.sendStatus("Arduino Active.");
-  Serial.println("test");
 }
 
 /* ============================================================ */
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {
-  // Code to run all the time goes here:
-  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
-    // This Arduino is for outputting
-    mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
-
-    // Check if it's been too long since last message - bad sign
-    // Turn everything off
-    if(millis() - lastMessage > 3000){ // 3 second limit
-      communication.bufferError("No incoming data received for more than 3 seconds. Switching all devices off");
-      int numberOfOutputs = mapper.getNumberOfOutputs();
-      for(int i = 0; i < numberOfOutputs; i++){
-        (*mapper.getAllOutputs())[i].turnOff();
-        delay(2000); // Delay between turning outputs off to prevent current rush.
-      }
-    }
-  }
-  else if(arduinoID=="Ard_I"){
-    // Output all sensor data
-      int numberOfInputs = mapper.getNumberOfInputs();
-      for(int i = 0; i < numberOfInputs; i++){
-        (*mapper.getAllInputs())[i].getValue();
-      }
-      communication.sendAll();
-  }
+  
   
   
   // parse the string when a newline arrives:
   if (stringComplete) {
+    
     // Set up JSON parser
     StaticJsonBuffer<1000> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
@@ -621,7 +600,8 @@ void loop() {
       stringComplete = false;
       return;
     }
-
+    safetyActive = false; // Switch off auto-off because valid message received
+    
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
       // This Arduino is for outputting
@@ -647,6 +627,40 @@ void loop() {
     lastMessage = millis();
     
   }
+
+  // Code to run all the time goes here:
+  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
+    // This Arduino is for outputting
+    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
+
+    // Check if it's been too long since last message - bad sign
+    // Turn everything off
+    if(millis() - lastMessage > 3000 && !safetyActive){ // 3 second limit
+      safetyActive = true; //activate safety
+      communication.bufferError("No incoming data received for more than 3 seconds. Switching all devices off");
+      communication.sendAll();
+      int numberOfOutputs = mapper.getNumberOfOutputs();
+      Output* test [numberOfOutputs];
+      for(int i = 0; i < numberOfOutputs; i++){
+        Serial.println(i);
+        //(*mapper.getAllOutputs())[i].turnOff();
+        //Serial.println(mapper.getAllOutputs());
+        //delay(125); // Delay between turning outputs off to prevent current rush.
+      }
+      //(*mapper.getAllOutputs())[0].turnOff();
+      //(*mapper.getAllOutputs())[1].turnOff(); //This causes an error
+      Serial.println("Test2");
+    }
+  }
+  else if(arduinoID=="Ard_I"){
+    // Output all sensor data
+      int numberOfInputs = mapper.getNumberOfInputs();
+      for(int i = 0; i < numberOfInputs; i++){
+        (*mapper.getAllInputs())[i].getValue();
+      }
+      communication.sendAll();
+  }
+  
 }
 
 /*

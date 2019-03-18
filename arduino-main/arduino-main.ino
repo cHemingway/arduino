@@ -589,8 +589,7 @@ void setup() {
 /* ============================================================ */
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
-void loop() {
-  
+void loop() {  
   // parse the string when a newline arrives:
   if (stringComplete) {
     

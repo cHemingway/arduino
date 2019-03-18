@@ -309,14 +309,18 @@ class ArmGripper: public Output {
         communication.bufferError("Left gripper limit hit. Motor stopped.");
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
+        return true;
       }
+      return false;
     }
     bool hitRightLimit(){ // check if a limit switch was hit
       if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
         communication.bufferError("Right gripper limit hit. Motor stopped.");
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
+        return true;
       }
+      return false;
     }
 
     void constantTask(){ // run in main loop: limit checking
@@ -630,10 +634,14 @@ void loop() {
   }
 
   // Code to run all the time goes here:
+
+  if(arduinoID=="Ard_A"){
+    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if gripper limit hit (TODO: automatically run all constant tasks)
+  }
+
+  
   if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
     // This Arduino is for outputting
-    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
-
     // Check if it's been too long since last message - bad sign
     // Turn everything off
     if(millis() - lastMessage > 1000 && !safetyActive){ // 1 second limit

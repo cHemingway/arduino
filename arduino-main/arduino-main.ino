@@ -156,6 +156,10 @@ class Output {
       // Something which needs to be run all the time
     }
 
+    String getID (){
+      return partID;
+    }
+
     virtual void turnOff(){
       // Switch device off - for safety
     }
@@ -497,19 +501,6 @@ class Mapper {
       return iCount;
     }
 
-    Input** getAllInputs(){
-      // Return pointer to the array of pointers
-      if(arduinoID=="Ard_I"){
-        return iObjects;
-      }
-      else{
-        // Send error message saying the Arduino was not found
-        String errorMessage = "Can't get all inputs from a non-input Arduino.";
-        communication.bufferError(errorMessage);
-        return {};
-      }
-    }
-
     int getNumberOfOutputs(){
       if(arduinoID == "Ard_T"){
         return tCount;
@@ -523,23 +514,35 @@ class Mapper {
       return 0;
     }
 
-    Output** getAllOutputs(){
-      // Return pointer to the array of pointers
+    void sendAllSensors(){
+      for(int i = 0; i < iCount; i++){
+        iObjects[i]->getValue();
+      }
+      communication.sendAll();
+    }
+
+    void stopOutputs(){ // safety function to turn everything off
       if(arduinoID == "Ard_T"){
-        return tObjects;
+        for(int i = 0; i < tCount; i++){
+          tObjects[i]->turnOff();
+          delay(125); // delay 125ms between each thruster to avoid sudden power halt
+        }
       }
       else if(arduinoID == "Ard_A"){
-        return aObjects;
+        for(int i = 0; i < aCount; i++){
+          aObjects[i]->turnOff();
+        }
       }
       else if(arduinoID == "Ard_M"){
-        return mObjects;
+        for(int i = 0; i < mCount; i++){
+          mObjects[i]->turnOff();
+        }
       }
       else{
         // Send error message saying the Arduino was not found
-        String errorMessage = "Can't get all outputs from a non-output Arduino.";
-        communication.bufferError(errorMessage);
-        return {};
+        communication.bufferError("Can't call stopOutputs from a non-output Arduino.");
       }
+      communication.sendStatus("Outputs halted.");
     }
     
 };
@@ -583,8 +586,6 @@ void setup() {
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {
-  
-  
   
   // parse the string when a newline arrives:
   if (stringComplete) {
@@ -635,30 +636,16 @@ void loop() {
 
     // Check if it's been too long since last message - bad sign
     // Turn everything off
-    if(millis() - lastMessage > 3000 && !safetyActive){ // 3 second limit
+    if(millis() - lastMessage > 1000 && !safetyActive){ // 1 second limit
       safetyActive = true; //activate safety
-      communication.bufferError("No incoming data received for more than 3 seconds. Switching all devices off");
+      communication.bufferError("No incoming data received for more than 1 second. Switching all devices off");
       communication.sendAll();
-      int numberOfOutputs = mapper.getNumberOfOutputs();
-      Output* test [numberOfOutputs];
-      for(int i = 0; i < numberOfOutputs; i++){
-        Serial.println(i);
-        //(*mapper.getAllOutputs())[i].turnOff();
-        //Serial.println(mapper.getAllOutputs());
-        //delay(125); // Delay between turning outputs off to prevent current rush.
-      }
-      //(*mapper.getAllOutputs())[0].turnOff();
-      //(*mapper.getAllOutputs())[1].turnOff(); //This causes an error
-      Serial.println("Test2");
+      mapper.stopOutputs();
     }
   }
   else if(arduinoID=="Ard_I"){
     // Output all sensor data
-      int numberOfInputs = mapper.getNumberOfInputs();
-      for(int i = 0; i < numberOfInputs; i++){
-        (*mapper.getAllInputs())[i].getValue();
-      }
-      communication.sendAll();
+      mapper.sendAllSensors();
   }
   
 }

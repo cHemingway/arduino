@@ -12,6 +12,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
+#include <avr/wdt.h> // watchdog timer
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -20,6 +21,9 @@ String inputString = "";         // a String to hold incoming data
 bool stringComplete = false;  // whether a full JSON string has been received
 String arduinoID = "";
 bool sensors = false;
+
+unsigned long lastMessage;
+bool safetyActive = false;
 
 
 // TODO set up some sort of mapping from the JSON ID to device object
@@ -118,6 +122,7 @@ class Output {
     int maxValue=0;
     int minValue=0;
     int currentValue=0;
+    int stoppedValue=0;
     int pin=0; // The physical pin this is associated with
     String partID="part ID not set";
 
@@ -149,6 +154,14 @@ class Output {
 
     virtual void constantTask(){
       // Something which needs to be run all the time
+    }
+
+    String getID (){
+      return partID;
+    }
+
+    virtual void turnOff(){
+      // Switch device off - for safety
     }
 };
 
@@ -240,6 +253,12 @@ class Thruster: public Output {
       // Return the set value
       return value;
     }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      currentValue = stoppedValue;
+      thruster.writeMicroseconds(stoppedValue);
+    }
 };
 
 
@@ -290,18 +309,28 @@ class ArmGripper: public Output {
         communication.bufferError("Left gripper limit hit. Motor stopped.");
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
+        return true;
       }
+      return false;
     }
     bool hitRightLimit(){ // check if a limit switch was hit
       if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
         communication.bufferError("Right gripper limit hit. Motor stopped.");
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
+        return true;
       }
+      return false;
     }
 
     void constantTask(){ // run in main loop: limit checking
       hitLeftLimit(); hitRightLimit();
+    }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      currentValue = stoppedValue;
+      thruster.writeMicroseconds(stoppedValue);
     }
 };
 
@@ -476,17 +505,48 @@ class Mapper {
       return iCount;
     }
 
-    Input** getAllInputs(){
-      // Return pointer to the array of pointers
-      if(arduinoID=="Ard_I"){
-        return iObjects;
+    int getNumberOfOutputs(){
+      if(arduinoID == "Ard_T"){
+        return tCount;
+      }
+      else if(arduinoID == "Ard_A"){
+        return aCount;
+      }
+      else if(arduinoID == "Ard_M"){
+        return mCount;
+      }
+      return 0;
+    }
+
+    void sendAllSensors(){
+      for(int i = 0; i < iCount; i++){
+        iObjects[i]->getValue();
+      }
+      communication.sendAll();
+    }
+
+    void stopOutputs(){ // safety function to turn everything off
+      if(arduinoID == "Ard_T"){
+        for(int i = 0; i < tCount; i++){
+          tObjects[i]->turnOff();
+          delay(125); // delay 125ms between each thruster to avoid sudden power halt
+        }
+      }
+      else if(arduinoID == "Ard_A"){
+        for(int i = 0; i < aCount; i++){
+          aObjects[i]->turnOff();
+        }
+      }
+      else if(arduinoID == "Ard_M"){
+        for(int i = 0; i < mCount; i++){
+          mObjects[i]->turnOff();
+        }
       }
       else{
         // Send error message saying the Arduino was not found
-        String errorMessage = "Can't get all inputs from a non-input Arduino.";
-        communication.bufferError(errorMessage);
-        return {};
+        communication.bufferError("Can't call stopOutputs from a non-output Arduino.");
       }
+      communication.sendStatus("Outputs halted.");
     }
     
 };
@@ -501,6 +561,7 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
   arduinoID = "Ard_" + String(char(EEPROM.read(0)));
+  
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
@@ -515,7 +576,7 @@ void setup() {
   else if (arduinoID == "Ard_I"){
     mapper.mapI();
   }
-  if (arduinoID == "Ard_A") {
+  else if (arduinoID == "Ard_A") {
     mapper.mapA();
   }
   else if (arduinoID == "Ard_M"){
@@ -528,24 +589,10 @@ void setup() {
 /* ============================================================ */
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
-void loop() {
-  // Code to run all the time goes here:
-  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
-    // This Arduino is for outputting
-    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if limit hit
-  }
-  else if(arduinoID=="Ard_I"){
-    // Output all sensor data
-      int numberOfInputs = mapper.getNumberOfInputs();
-      for(int i = 0; i < numberOfInputs; i++){
-        (*mapper.getAllInputs())[i].getValue();
-      }
-      communication.sendAll();
-  }
-  
-  
+void loop() {  
   // parse the string when a newline arrives:
   if (stringComplete) {
+    
     // Set up JSON parser
     StaticJsonBuffer<1000> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
@@ -557,7 +604,8 @@ void loop() {
       stringComplete = false;
       return;
     }
-
+    safetyActive = false; // Switch off auto-off because valid message received
+    
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
       // This Arduino is for outputting
@@ -578,7 +626,35 @@ void loop() {
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
+
+    // Update time last message received
+    lastMessage = millis();
+    
   }
+
+  // Code to run all the time goes here:
+
+  if(arduinoID=="Ard_A"){
+    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if gripper limit hit (TODO: automatically run all constant tasks)
+  }
+
+  
+  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
+    // This Arduino is for outputting
+    // Check if it's been too long since last message - bad sign
+    // Turn everything off
+    if(millis() - lastMessage > 1000 && !safetyActive){ // 1 second limit
+      safetyActive = true; //activate safety
+      communication.bufferError("No incoming data received for more than 1 second. Switching all devices off");
+      communication.sendAll();
+      mapper.stopOutputs();
+    }
+  }
+  else if(arduinoID=="Ard_I"){
+    // Output all sensor data
+      mapper.sendAllSensors();
+  }
+  
 }
 
 /*

@@ -39,8 +39,8 @@ bool safetyActive = false;
 class Communication{
   private:
     static const int elementCount = 10;
-    String key[elementCount];
-    String value[elementCount];
+    char* key[elementCount];
+    char* value[elementCount];
     int currentPosition = 0; // value of next free space
     
   public:
@@ -52,33 +52,33 @@ class Communication{
         currentPosition = 0;
       }
     }
-    void bufferValue(String device, String incomingValue){
+    void bufferValue(char* device, char* incomingValue){
       // buffer a key value pair to be sent with next load
       key[currentPosition] = device;
       value[currentPosition] = incomingValue;
       incrementPosition();
     }
-    void bufferError(String errorMessage){
+    void bufferError(char* errorMessage){
       // buffer an error message to be sent with next load
-      String tempKey = "error_" + String(char(EEPROM.read(0)));
+      char* tempKey = "error_" + char(EEPROM.read(0));
       key[currentPosition] = tempKey;
       value[currentPosition] = errorMessage;
       incrementPosition();
     }
-    void sendStatus(String status){
+    void sendStatus(char* status){
       // immediately sends current status to pi
-      String resString;
+      char* resString;
       const int capacity = 100;
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
-      String tempKey = "status_" + String(char(EEPROM.read(0)));
+      char* tempKey = "status_" + char(EEPROM.read(0));
       res[tempKey] = status;
       res.printTo(Serial);
       Serial.println();
     }
     void sendAll(){
-      String resString;
+      char* resString;
       const int capacity = 300; // Not sure about this size - probably needs calculating
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
@@ -103,7 +103,7 @@ class Input {
 
   protected:
     int pin=0; // The physical pin this is associated with
-    String partID="Part ID not set.";
+    char* partID="Part ID not set.";
 
   public:
     Input() {
@@ -124,7 +124,7 @@ class Output {
     int currentValue=0;
     int stoppedValue=0;
     int pin=0; // The physical pin this is associated with
-    String partID="part ID not set";
+    char* partID="part ID not set";
 
   public:
     Output() {
@@ -156,7 +156,7 @@ class Output {
       // Something which needs to be run all the time
     }
 
-    String getID (){
+    char* getID (){
       return partID;
     }
 
@@ -177,7 +177,7 @@ class IMU: public Input { //                                                    
     Adafruit_BNO055 imu = Adafruit_BNO055(55); // IMU device
 
   public:
-    IMU(int inputPin, String incomingPartID){
+    IMU(int inputPin, char* incomingPartID){
       // Run parent method
       partID = incomingPartID;
       if(!imu.begin())
@@ -198,18 +198,31 @@ class IMU: public Input { //                                                    
         sensors_event_t event;
         imu.getEvent(&event);
         /* Output the floating point data */
+        char* key, value;
+        
         // x
-        communication.bufferValue(this->partID+"_X",String(event.orientation.x));
+        key = this->partID;
+        strcat(key, "_X");
+        dtostrf(event.orientation.x, 5, 2, value);
+        communication.bufferValue(key,value);
   
         // y
-        communication.bufferValue(this->partID+"_Y",String(event.orientation.y));
+        key = this->partID;
+        strcat(key, "_Y");
+        dtostrf(event.orientation.y, 5, 2, value);
+        communication.bufferValue(key,value);
   
         // z
-        communication.bufferValue(this->partID+"_Z",String(event.orientation.z));
+        key = this->partID;
+        strcat(key, "_Z");
+        dtostrf(event.orientation.z, 5, 2, value);
+        communication.bufferValue(key,value);
 
         // Get temperature recorded by IMU
         int8_t temp = imu.getTemp();
-        communication.bufferValue(this->partID+"_Temp",String(temp));
+        key = this->partID;
+        dtostrf(temp, 5, 2, value);
+        communication.bufferValue(key,value);
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -232,7 +245,7 @@ class Thruster: public Output {
 
   public:
 
-    Thruster (int inputPin, String partID) {
+    Thruster (int inputPin, char* partID) {
       this->partID = partID;
 
       // Set limit and starting values
@@ -272,7 +285,7 @@ class ArmGripper: public Output {
 
  public:
 
-    ArmGripper(int inputPin, String partID, int limitPinLeft, int limitPinRight ) {
+    ArmGripper(int inputPin, char* partID, int limitPinLeft, int limitPinRight ) {
       this->partID = partID;
 
       // Set limit and starting values
@@ -343,7 +356,7 @@ class ArmRotation: public Output { //todo
     
  public:
 
-    ArmRotation (int inputPin, String partID) {
+    ArmRotation (int inputPin, char* partID) {
       this->partID = partID;
 
       // Set limit and starting values
@@ -375,7 +388,7 @@ class Lamp: public Output { //todo
     
  public:
 
-    Lamp (int inputPin, String partID) {
+    Lamp (int inputPin, char* partID) {
       this->partID = partID;
 
       // Set limit and starting values
@@ -407,22 +420,22 @@ class Mapper {
     // t for Ard_T (Thrusters)
     const static int tCount=8;
     Output* tObjects[tCount];
-    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
+    char* tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
 
     // i for Ard_I (Input)
     const static int iCount=1;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU"};
+    char* iIDs[iCount] = {"Sen_IMU"};
 
     // a for Ard_A (Arm)
     const static int aCount=3;
     Output* aObjects[aCount];
-    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
+    char* aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
 
     // m for Ard_M (Micro ROV)
     const static int mCount=2;
     Output* mObjects[mCount];
-    String mIDs[mCount] = {"Thr_M", "LED_M"};
+    char* mIDs[mCount] = {"Thr_M", "LED_M"};
 
     
   public:
@@ -448,7 +461,7 @@ class Mapper {
       mObjects[0] = new Lamp(6,mIDs[1]);
     }
     
-    Output* getOutput(String jsonID){
+    Output* getOutput(char* jsonID){
       if(arduinoID=="Ard_T"){
         for(int i = 0; i < tCount; i++){
           if(jsonID == tIDs[i]){
@@ -478,12 +491,13 @@ class Mapper {
         return new Output();
       }
       // Send error message saying the device was not found
-      String errorMessage = "Output device ID is not valid: "+jsonID;
+      char* errorMessage = "Output device ID is not valid: ";
+      strcat(errorMessage,jsonID);
       communication.bufferError(errorMessage);
       return new Output();
     }
     
-    Input* getInput(String jsonID){
+    Input* getInput(char* jsonID){
       if(arduinoID=="Ard_I"){
         for(int i = 0; i < iCount; i++){
           if(jsonID == iIDs[i]){
@@ -499,7 +513,8 @@ class Mapper {
         return new Input();
       }
       // Send error message saying the device was not found
-      String errorMessage = "Input device ID is not valid: "+jsonID;
+      char* errorMessage = "Input device ID is not valid: ";
+      strcat(errorMessage,jsonID);
       communication.bufferError(errorMessage);
     }
 
@@ -569,7 +584,7 @@ void setup() {
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
   // reserve 200 bytes for the inputString:
-  inputString.reserve(200);
+  //inputString.reserve(200);
 
 
   // Map inputs and outputs based on which Arduino this is

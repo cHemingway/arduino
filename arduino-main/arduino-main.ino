@@ -17,9 +17,9 @@
 /* ============================================================ */
 /* ==================Set up global variables=================== */
 /* ============================================================ */
-String inputString = "";         // a String to hold incoming data
+char* inputString = "";         // a String to hold incoming data
 bool stringComplete = false;  // whether a full JSON string has been received
-String arduinoID = "";
+char* arduinoID = "";
 bool sensors = false;
 
 unsigned long lastMessage;
@@ -38,7 +38,7 @@ bool safetyActive = false;
 
 class Communication{
   private:
-    static const int elementCount = 100;
+    static const int elementCount = 10;
     String key[elementCount];
     String value[elementCount];
     int currentPosition = 0; // value of next free space
@@ -79,7 +79,7 @@ class Communication{
     }
     void sendAll(){
       String resString;
-      const int capacity = 1000; // Not sure about this size - probably needs calculating
+      const int capacity = 300; // Not sure about this size - probably needs calculating
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
@@ -472,7 +472,8 @@ class Mapper {
       }
       else{
         // Send error message saying the Arduino was not found
-        String errorMessage = "getOutput method doesn't have an option for "+arduinoID;
+        char* errorMessage = "getOutput method doesn't have an option for ";
+        strcat(errorMessage, arduinoID);
         communication.bufferError(errorMessage);
         return new Output();
       }
@@ -492,7 +493,8 @@ class Mapper {
       }
       else{
         // Send error message saying the Arduino was not found
-        String errorMessage = "getInput method doesn't have an option for "+arduinoID;
+        char* errorMessage = "getInput method doesn't have an option for ";
+        strcat(errorMessage, arduinoID);
         communication.bufferError(errorMessage);
         return new Input();
       }
@@ -560,12 +562,13 @@ Mapper mapper; // Declare a new mapper object to map IDs to devices
 /* =======================Setup function======================= */
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
-  arduinoID = "Ard_" + String(char(EEPROM.read(0)));
-  
+  arduinoID = "Ard_";
+  strcat(arduinoID, char(EEPROM.read(0)));
+  Serial.println("test");
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus("Arduino Booting.");
-  // reserve 2000 bytes for the inputString:
+  // reserve 200 bytes for the inputString:
   inputString.reserve(200);
 
 
@@ -594,7 +597,7 @@ void loop() {
   if (stringComplete) {
     
     // Set up JSON parser
-    StaticJsonBuffer<1000> jsonBuffer;
+    StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
     // Test if parsing succeeds.
     if (!root.success()) {

@@ -1,4 +1,4 @@
-thu/* Program to recieve and parse an incoming JSON string */
+/* Program to recieve and parse an incoming JSON string */
 /* Main IO code based on https://www.arduino.cc/en/Tutorial/SerialEvent */
 /* JSON parser code from https://arduinojson.org/v5/example/parser/ */
 

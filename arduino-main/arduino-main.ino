@@ -597,9 +597,7 @@ void setup() {
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {  
-  unsigned long StartTime = 0;
-  unsigned long EndTime;
-  unsigned long ElapsedTime;
+  
   // parse the string when a newline arrives:
   if (stringComplete) {
     

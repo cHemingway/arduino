@@ -210,13 +210,6 @@ class IMU: public Input { //                                                    
         // Get temperature recorded by IMU
         int8_t temp = imu.getTemp();
         communication.bufferValue(this->partID+"_Temp",String(temp));
-        
-        imu::Vector<3> acc = imu.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-        communication.bufferValue(this->partID+"Acc_X",String(acc.x()));
-
-        communication.bufferValue(this->partID+"Acc_Y",String(acc.y()));
-
-        communication.bufferValue(this->partID+"Acc_Z",String(acc.z()));
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -597,7 +590,6 @@ void setup() {
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
 void loop() {  
-  
   // parse the string when a newline arrives:
   if (stringComplete) {
     
@@ -623,6 +615,7 @@ void loop() {
       }
     }
     else if (arduinoID=="Ard_I"){
+      
     }
     else{
       communication.bufferError("Arduino ID not set up. This Arduino will not function");
@@ -633,7 +626,7 @@ void loop() {
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
-      
+
     // Update time last message received
     lastMessage = millis();
     
@@ -659,7 +652,6 @@ void loop() {
   }
   else if(arduinoID=="Ard_I"){
     // Output all sensor data
-      
       mapper.sendAllSensors();
   }
   

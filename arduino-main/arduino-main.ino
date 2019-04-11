@@ -364,6 +364,11 @@ class ArmRotation: public Output { //todo
       // Return the set value
       return value;
     }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      //(Do nothing - don't want to move this if switching off)
+    }
 };
 
 class Lamp: public Output { //todo
@@ -395,6 +400,11 @@ class Lamp: public Output { //todo
       led.writeMicroseconds(value);
       // Return the set value
       return value;
+    }
+
+    void turnOff(){
+      // Switch off in case of emergency
+      //(Do nothing - it's just an LED)
     }
 };
 
@@ -440,7 +450,8 @@ class Mapper {
 
     void mapA(){
       aObjects[0] = new ArmRotation(2, aIDs[0]);
-      aObjects[1] = new ArmGripper(3, aIDs[1],22,23); //          TODO: init fish box
+      aObjects[1] = new ArmGripper(3, aIDs[1],54,55);
+      aObjects[2] = new ArmGripper(4, aIDs[2],56,57); // Fish box
       aObjects[3] = new Lamp(5,aIDs[3]);
     }
 

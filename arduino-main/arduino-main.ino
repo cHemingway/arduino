@@ -8,11 +8,13 @@
 #include <EEPROM.h> // Library for writing to Arduino's non volatile memory
 #include <ArduinoJson.h> // JSON encoding and decoding
 #include <Servo.h> // For controlling servos and thrusters
-#include <Wire.h>
+//IMU
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-#include <avr/wdt.h> // watchdog timer
+//Depth
+#include <Wire.h>
+#include "MS5837.h"
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -24,6 +26,8 @@ bool sensors = false;
 
 unsigned long lastMessage;
 bool safetyActive = false;
+
+
 
 
 // TODO set up some sort of mapping from the JSON ID to device object
@@ -38,7 +42,7 @@ bool safetyActive = false;
 
 class Communication{
   private:
-    static const int elementCount = 100;
+    static const int elementCount = 20;
     String key[elementCount];
     String value[elementCount];
     int currentPosition = 0; // value of next free space
@@ -214,6 +218,47 @@ class IMU: public Input { //                                                    
       else{
         // Throw error because this sensor has not yet been initialised properly
         communication.bufferError("IMU BNO055 not initialised.");
+      }
+      
+    }
+};
+
+class Depth: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    bool initialised = false;
+    MS5837 depthSensor;
+
+  public:
+    Depth(int inputPin, String incomingPartID){
+      Wire.begin();
+      // Run parent method
+      partID = incomingPartID;
+      if(!depthSensor.init())
+      {
+        // Send error message
+        communication.bufferError("Depth Sensor not found. Check wiring.");
+      }
+      else{
+        depthSensor.setModel(MS5837::MS5837_30BA);
+        depthSensor.setFluidDensity(997); // kg/m^3 (freshwater, 1029 for seawater)
+        initialised = true;
+      }
+    }
+
+    int getValue() {
+      if(initialised){
+        depthSensor.read(); // Read current values
+        communication.bufferValue(this->partID+"_Pres",String(depthSensor.pressure()));
+        communication.bufferValue(this->partID+"_Temp",String(depthSensor.temperature()));
+        communication.bufferValue(this->partID+"_Dep",String(depthSensor.depth()));
+        communication.bufferValue(this->partID+"_Alt",String(depthSensor.altitude()));
+        
+      }
+      else{
+        // Throw error because this sensor has not yet been initialised properly
+        communication.bufferError("Depth sensor not initialised.");
       }
       
     }
@@ -420,9 +465,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
 
     // i for Ard_I (Input)
-    const static int iCount=1;
+    const static int iCount=2;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep"};
 
     // a for Ard_A (Arm)
     const static int aCount=4;
@@ -446,6 +491,7 @@ class Mapper {
     void mapI(){
       // Map and initialise inputs
       iObjects[0] = new IMU(0,iIDs[0]);
+      iObjects[1] = new Depth(0,iIDs[1]);
     }
 
     void mapA(){
@@ -617,6 +663,7 @@ void loop() {
       return;
     }
     safetyActive = false; // Switch off auto-off because valid message received
+    communication.sendStatus("Message recieved.");
     
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){

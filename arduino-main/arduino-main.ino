@@ -415,14 +415,14 @@ class Mapper {
     String iIDs[iCount] = {"Sen_IMU"};
 
     // a for Ard_A (Arm)
-    const static int aCount=3;
+    const static int aCount=4;
     Output* aObjects[aCount];
-    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F"};
+    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F", "LED_M"};
 
     // m for Ard_M (Micro ROV)
-    const static int mCount=2;
+    const static int mCount=1;
     Output* mObjects[mCount];
-    String mIDs[mCount] = {"Thr_M", "LED_M"};
+    String mIDs[mCount] = {"Thr_M"};
 
     
   public:
@@ -441,11 +441,12 @@ class Mapper {
     void mapA(){
       aObjects[0] = new ArmRotation(2, aIDs[0]);
       aObjects[1] = new ArmGripper(3, aIDs[1],22,23); //          TODO: init fish box
+      aObjects[3] = new Lamp(5,aIDs[3]);
     }
 
     void mapM(){
       mObjects[0] = new Thruster(3,mIDs[0]);
-      mObjects[0] = new Lamp(6,mIDs[1]);
+      
     }
     
     Output* getOutput(String jsonID){

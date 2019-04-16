@@ -47,7 +47,7 @@ class Communication{
     void incrementPosition(){
       // increment currentValue and send if over limit
       currentPosition++;
-      if(currentPosition>currentPosition){
+      if(currentPosition>=elementCount){
         sendAll();
         currentPosition = 0;
       }
@@ -255,6 +255,7 @@ class Thruster: public Output {
     }
 
     void turnOff(){
+      //Serial.println(partID);
       // Switch off in case of emergency
       currentValue = stoppedValue;
       thruster.writeMicroseconds(stoppedValue);
@@ -314,6 +315,8 @@ class ArmGripper: public Output {
       return false;
     }
     bool hitRightLimit(){ // check if a limit switch was hit
+      //Serial.println("Pin is");
+      //Serial.println(rightLimit);
       if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
         communication.bufferError("Right gripper limit hit. Motor stopped.");
         currentValue = stoppedValue;
@@ -328,13 +331,14 @@ class ArmGripper: public Output {
     }
 
     void turnOff(){
+      //Serial.println(partID);
       // Switch off in case of emergency
       currentValue = stoppedValue;
       thruster.writeMicroseconds(stoppedValue);
     }
 };
 
-class ArmRotation: public Output { //todo
+class ArmRotation: public Output {
 
   protected:
     // Represents a servo controlling arm rotation
@@ -415,9 +419,12 @@ class Lamp: public Output { //todo
 class Mapper {
   private:
     // t for Ard_T (Thrusters)
-    const static int tCount=8;
+    const static int tCount=11;
+    //const static int tCount=8;
     Output* tObjects[tCount];
-    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
+    //String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
+    // Aberdeen change
+    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"};
 
     // i for Ard_I (Input)
     const static int iCount=1;
@@ -441,6 +448,10 @@ class Mapper {
       for ( int i = 0; i < tCount; i++) {
         tObjects[i] = new Thruster(2+i, tIDs[i]);
       }
+      
+      tObjects[10] = new ArmRotation(10, tIDs[10]);
+      tObjects[11] = new ArmGripper(11, tIDs[11],26,27);
+      tObjects[12] = new ArmGripper(12, tIDs[12],28,29); // Fish box
     }
     
     void mapI(){
@@ -450,8 +461,8 @@ class Mapper {
 
     void mapA(){
       aObjects[0] = new ArmRotation(2, aIDs[0]);
-      aObjects[1] = new ArmGripper(3, aIDs[1],54,55);
-      aObjects[2] = new ArmGripper(4, aIDs[2],56,57); // Fish box
+      aObjects[1] = new ArmGripper(3, aIDs[1],10,11);
+      aObjects[2] = new ArmGripper(4, aIDs[2],12,13); // Fish box
       aObjects[3] = new Lamp(5,aIDs[3]);
     }
 
@@ -648,6 +659,7 @@ void loop() {
 
   if(arduinoID=="Ard_A"){
     //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if gripper limit hit (TODO: automatically run all constant tasks)
+    //mapper.getOutput("Mot_F")->constantTask(); 
   }
 
   

@@ -272,6 +272,49 @@ class Depth: public Input {
     }
 };
 
+class PHSensor: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    int buf[10], temp; // Store 10 samples from the sensor for an accurate average
+    unsigned long int avgValue;  //Store the average value of the sensor feedback
+  public:
+    PHSensor(int inputPin, String incomingPartID){
+      partID = incomingPartID;
+      pin = inputPin;
+      
+    }
+
+    int getValue() {
+      // This might need rethinking since it looks a bit s l o w
+      
+      for(int i=0;i<10;i++)       //Get 10 sample values from the sensor to smooth the result
+      { 
+        buf[i]=analogRead(pin);
+        delay(1); // This delay might be too short
+      }
+      for(int i=0;i<9;i++)        //sort the analog from small to large
+      {
+        for(int j=i+1;j<10;j++)
+        {
+          if(buf[i]>buf[j])
+          {
+            temp=buf[i];
+            buf[i]=buf[j];
+            buf[j]=temp;
+          }
+        }
+      }
+      avgValue=0;
+      for(int i=2;i<8;i++){                      //take the average value of 6 center sample
+        avgValue+=buf[i];
+      }
+      float phValue=(float)avgValue*5.0/1024/6; //convert the analog into millivolt
+      phValue=3.5*phValue;                      //convert the millivolt into pH value
+      communication.bufferValue(this->partID,String(phValue)); // Send averaged sensor value
+    }
+};
+
 
 /* ===========================Outputs=========================== */
 
@@ -480,9 +523,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"};
 
     // i for Ard_I (Input)
-    const static int iCount=2;
+    const static int iCount=3;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"};
 
     // a for Ard_A (Arm)
     const static int aCount=4;
@@ -511,6 +554,7 @@ class Mapper {
       // Map and initialise inputs
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
+      iObjects[2] = new PH(55,iIDs[2]);
     }
 
     void mapA(){

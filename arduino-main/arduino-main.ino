@@ -663,7 +663,6 @@ void loop() {
       return;
     }
     safetyActive = false; // Switch off auto-off because valid message received
-    communication.sendStatus("Message recieved.");
     
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){

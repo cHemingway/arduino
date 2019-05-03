@@ -523,9 +523,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"};
 
     // i for Ard_I (Input)
-    const static int iCount=2;
+    const static int iCount=3;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"};
 
     // a for Ard_A (Arm)
     const static int aCount=4;
@@ -554,6 +554,7 @@ class Mapper {
       // Map and initialise inputs
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
+      iObjects[2] = new PH(55,iIDs[2]);
     }
 
     void mapA(){

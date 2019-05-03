@@ -173,7 +173,7 @@ class Output {
 /* ===========================Inputs=========================== */
 
 
-class IMU: public Input { //                                                             TODO: Output all the things
+class IMU: public Input { 
     // Designed to be a generic interface for all output devices.
 
   protected:
@@ -214,6 +214,14 @@ class IMU: public Input { //                                                    
         // Get temperature recorded by IMU
         int8_t temp = imu.getTemp();
         communication.bufferValue(this->partID+"_Temp",String(temp));
+
+        // Get acceleration data
+        imu::Vector<3> euler = imu.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+
+        communication.bufferValue(this->partID+"_AccX",String(euler.x()));
+        communication.bufferValue(this->partID+"_AccY",String(euler.y()));
+        communication.bufferValue(this->partID+"_AccZ",String(euler.z()));
+
       }
       else{
         // Throw error because this sensor has not yet been initialised properly

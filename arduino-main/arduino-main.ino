@@ -467,7 +467,8 @@ class ArmRotation: public Output {
 
     void turnOff(){
       // Switch off in case of emergency
-      //(Do nothing - don't want to move this if switching off)
+      currentValue = stoppedValue;
+      thruster.writeMicroseconds(stoppedValue);
     }
 };
 

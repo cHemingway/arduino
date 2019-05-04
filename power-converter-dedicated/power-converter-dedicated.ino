@@ -20,37 +20,6 @@ void setup() {
     Serial.print("ACK was not received. Error code: ");
     Serial.println(ack);
   }
-
-//  
-//
-//  
-//
-//  Serial.println("Waiting for ACK of Address");
-//  byte n = Wire.requestFrom(addr, 1); // Request data
-//  while (Wire.available()) // Read all incoming data
-//  {
-//    Serial.print("Received: ");
-//    char c = Wire.read();    // receive a byte as character
-//    Serial.println(c);         // print the character
-//  }
-//
-//  Serial.println("Sending Command Code");
-//  Wire.beginTransmission(addr);
-//  Wire.write(command); // Write command code
-//  Wire.endTransmission();
-//
-//  Serial.println("Waiting for ACK of Command Code");
-//  byte n = Wire.requestFrom(addr, 1); // Request data
-//  while (Wire.available()) // Read all incoming data
-//  {
-//    Serial.print("Received: ");
-//    char c = Wire.read();    // receive a byte as character
-//    Serial.println(c);         // print the character
-//  }
-//
-//  
-
-
 }
 
 void loop() {

@@ -468,7 +468,7 @@ class ArmRotation: public Output {
     void turnOff(){
       // Switch off in case of emergency
       currentValue = stoppedValue;
-      thruster.writeMicroseconds(stoppedValue);
+      servo.writeMicroseconds(stoppedValue);
     }
 };
 
@@ -555,7 +555,7 @@ class Mapper {
       // Map and initialise inputs
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
-      iObjects[2] = new PH(55,iIDs[2]);
+      iObjects[2] = new PHSensor(55,iIDs[2]);
     }
 
     void mapA(){

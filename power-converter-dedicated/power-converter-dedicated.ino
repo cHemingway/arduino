@@ -37,7 +37,7 @@ void loop() {
       readSignal(0x8B, 2);
     }
     else if(inputString == "6"){
-      readSignal(0x9A, 18);
+      readSignal(0x99, 18);
     }
     else if(inputString == "7"){
       writeSignal(0x01,0x80);
@@ -61,7 +61,7 @@ void showMenu(){
   Serial.println("3. Scan for addresses");
   Serial.println("4. Realtime monitoring");
   Serial.println("5. Get output voltage");
-  Serial.println("6. Get part number");
+  Serial.println("6. Get controller ID");
   Serial.println("7. TURN DEVICE ON");
 }
 

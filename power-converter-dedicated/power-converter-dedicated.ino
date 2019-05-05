@@ -39,6 +39,9 @@ void loop() {
     else if(inputString == "6"){
       readSignal(0x9A, 18);
     }
+    else if(inputString == "7"){
+      writeSignal(0x01,0x80);
+    }
     else{
       Serial.println("Unknown option");
       
@@ -59,6 +62,7 @@ void showMenu(){
   Serial.println("4. Realtime monitoring");
   Serial.println("5. Get output voltage");
   Serial.println("6. Get part number");
+  Serial.println("7. TURN DEVICE ON");
 }
 
 void testSignal(){
@@ -82,6 +86,26 @@ void writeSignal(int command){
   Wire.beginTransmission(addr);
   Serial.println("Sending Command Code");
   Wire.write(command); // Write command code
+  Serial.println("Ending Transmission. Waiting for status...");
+  ack = Wire.endTransmission();
+  if(ack==0){
+    Serial.println("Transmission success.");
+  }
+  else{
+    Serial.print("ACK was not received. Error code: ");
+    Serial.println(ack);
+  }
+}
+
+void writeSignal(int command, int data){
+  
+  int ack = 0;
+  
+  Serial.println("Begin Transmission (with data)");
+  Wire.beginTransmission(addr);
+  Serial.println("Sending Command Code");
+  Wire.write(command); // Write command code
+  Wire.write(data); // Write data
   Serial.println("Ending Transmission. Waiting for status...");
   ack = Wire.endTransmission();
   if(ack==0){
@@ -163,22 +187,22 @@ void monitorStatus(){
     Serial.print(getValue(0x7D,1));*/
     Serial.print(" | ");
     Serial.print("Vin: ");
-    Serial.print(getValue(0x88,2));
+    Serial.print(getValue(0x88,2,1,1,0,true));
     Serial.print(" | ");
     Serial.print("IIn: ");
-    Serial.print(getValue(0x89,2));
+    Serial.print(getValue(0x89,2,1,2,0,true));
     Serial.print(" | ");
     Serial.print("Vout: ");
-    Serial.print(getValue(0x8B,2));
+    Serial.print(getValue(0x8B,2,1,1,0,true));
     Serial.print(" | ");
     Serial.print("IOut: ");
-    Serial.print(getValue(0x8C,2));
+    Serial.print(getValue(0x8C,2,1,2,0,true));
     Serial.print(" | ");
     Serial.print("Temperature: ");
-    Serial.print(getValue(0x8D,2),BIN);
+    Serial.print(getValue(0x8D,2,1,0,0,true),BIN);
     Serial.print(" | ");
     Serial.print("Load resistance: ");
-    Serial.print(getValue(0xD4,2));
+    Serial.print(getValue(0xD4,2,1,5,0,true));
     Serial.print(" | ");
     Serial.print("Overtemp fault: 0x");
     Serial.print(getValue(0x4F,2),HEX);
@@ -192,17 +216,27 @@ void monitorStatus(){
   }
 }
 
-int getValue(int command, int n){ // Quietly get a certain value
+int getValue(int command, int numberOfBytes){
+  // Method for if no conversion is needed
+  return getValue(command,numberOfBytes,0,0,0,false);
+}
+
+
+int getValue(int command, int numberOfBytes, int m, int R, int b, bool needsConverting){ // Quietly get a certain value
   Wire.beginTransmission(addr);
   Wire.write(command); // Write command code
   if(Wire.endTransmission(false)==0){
-    Wire.requestFrom(addr, n, (uint8_t) true );    // request n bytes from slave device
+    Wire.requestFrom(addr, numberOfBytes, (uint8_t) true );    // request n bytes from slave device
     // step 5: receive reading from sensor
-    if (n <= Wire.available()) { // if two bytes were received
+    if (numberOfBytes <= Wire.available()) { // if two bytes were received
       int reading = 0;
-      for(int i=0; i<n; i++){
+      for(int i=0; i<numberOfBytes; i++){
         reading |= Wire.read();
-        reading = reading << (8*(((n-1)-i)));    // shift high byte to be high 8 bits
+        reading = reading << (8*(((numberOfBytes-1)-i)));    // shift high byte to be high 8 bits
+      }
+      // Convert into correct units
+      if(needsConverting){
+        reading = (1/m)*(reading*(10^(-R))-b);
       }
       return reading;
     }

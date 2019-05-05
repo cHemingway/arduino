@@ -17,15 +17,14 @@ void loop() {
   // put your main code here, to run repeatedly:
   if (stringComplete) {
     // Run menu
-    
-    if(inputString == "1"){
+    if(inputString == "0"){
+      testSignal();
+    }
+    else if(inputString == "1"){
       writeSignal(0x03);
     }
     else if(inputString == "2"){
       readSignal(0x88, 2);
-    }
-    else if(inputString == "0"){
-      testSignal();
     }
     else if(inputString == "3"){
       scanForAddresses();
@@ -37,10 +36,31 @@ void loop() {
       readSignal(0x8B, 2);
     }
     else if(inputString == "6"){
-      readSignal(0x99, 18);
+      readSignal(0x99, 2);
     }
     else if(inputString == "7"){
       writeSignal(0x01,0x80);
+    }
+    else if(inputString == "8"){
+      readSignal(0x01, 1);
+    }
+    else if(inputString == "9"){
+      readSignal(0x79, 2);
+    }
+    else if(inputString == "10"){
+      readSignal(0x78, 1);
+    }
+    else if(inputString == "11"){
+      readSignal(0x7B, 1);
+    }
+    else if(inputString == "12"){
+      readSignal(0x7C, 1);
+    }
+    else if(inputString == "13"){
+      readSignal(0x7D, 1);
+    }
+    else if(inputString == "14"){
+      readSignal(0x7E, 1);
     }
     else{
       Serial.println("Unknown option");
@@ -53,6 +73,8 @@ void loop() {
 }
 
 void showMenu(){
+  Serial.println();
+  Serial.println();
   Serial.print("Menu for device 0x");
   Serial.println(addr, HEX);
   Serial.println("0. Test connection");
@@ -63,6 +85,13 @@ void showMenu(){
   Serial.println("5. Get output voltage");
   Serial.println("6. Get controller ID");
   Serial.println("7. TURN DEVICE ON");
+  Serial.println("8. Check if on");
+  Serial.println("9. Check device status word");
+  Serial.println("10. Check device status byte");
+  Serial.println("11. Check for overcurrent fault");
+  Serial.println("12. Check for voltage fault");
+  Serial.println("13. Check for temperature fault");
+  Serial.println("14. Check for communication fault");
 }
 
 void testSignal(){
@@ -146,7 +175,45 @@ void readSignal(int command, int byteCount){
     Serial.println("Received response: ");
     //char letter = (char) reading;
     //partCode += String(reading);
-    Serial.println(reading, HEX);   // print the reading
+    //Serial.print("0x");
+    Serial.println(reading, BIN);   // print the reading
+  }
+  //Serial.println(partCode);
+  
+  
+}
+void readSignal(int command, int byteCount, int data){
+  int ack = 0;
+
+  Serial.println("Begin Transmission");
+  Wire.beginTransmission(addr);
+  Serial.println("Sending Command Code");
+  Wire.write(command); // Write command code
+  Wire.write(data); // Write data
+  Serial.println("Ending Transmission of command. Waiting for status...");
+  ack = Wire.endTransmission(false);
+  if(ack==0){
+    Serial.println("Transmission success.");
+  }
+  else{
+    Serial.print("ACK was not received. Error code: ");
+    Serial.println(ack);
+  }
+
+  Serial.println("Requesting data of command...");
+  Wire.requestFrom(addr, byteCount,(uint8_t) true );    // request n bytes from slave device
+
+  // receive reading from sensor
+
+  //String partCode = "";
+  while (Wire.available()) { // if bytes were received
+    byte reading;
+    reading = Wire.read();  // receive high byte (overwrites previous reading)
+    Serial.println("Received response: ");
+    //char letter = (char) reading;
+    //partCode += String(reading);
+    //Serial.print("0x");
+    Serial.println(reading, BIN);   // print the reading
   }
   //Serial.println(partCode);
   
@@ -199,7 +266,7 @@ void monitorStatus(){
     Serial.print(getValue(0x8C,2,1,2,0,true));
     Serial.print(" | ");
     Serial.print("Temperature: ");
-    Serial.print(getValue(0x8D,2,1,0,0,true),BIN);
+    Serial.print(getValue(0x8D,2,1,0,0,true));
     Serial.print(" | ");
     Serial.print("Load resistance: ");
     Serial.print(getValue(0xD4,2,1,5,0,true));

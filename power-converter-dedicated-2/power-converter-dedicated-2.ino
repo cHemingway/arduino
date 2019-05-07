@@ -8,21 +8,74 @@ void setup() {
   Serial.println("Power Management Arduino Booted");
   scanForAddresses();
 
-  // Show status
-
-  // Check for comms fault
+  // Check current status
+  showStatus();
+  // Check if something has caused a communication fault
+  commFault();
 
   // Show in voltage
+  Serial.print("Vin: ");
+  Wire.beginTransmission(addr);
+  Wire.write(0x88); // Write command code
+  int ack = Wire.endTransmission(false); // Send repeated start
+  if(ack!=0){
+    Serial.print("(Error: ");
+    Serial.print(ack);
+    Serial.print(")");
+  }
+   Wire.requestFrom(addr, byteCount,(uint8_t) true);    // request bytes from slave device
+   while (Wire.available()) { // if bytes were received
+    Serial.print(" 0b");
+    Serial.println(Wire.read(),BIN);//Show result in binary
+   }
 
-  // Show status
-
-  // check for comms fault
+  // Check current status
+  showStatus();
+  // Check if something has caused a communication fault
+  commFault();
   
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
+}
+void commFault(){
+  Serial.print("Communication Fault: ");
+  Wire.beginTransmission(addr);
+  Wire.write(0x7E); // Write command code
+  int ack = Wire.endTransmission(false); // Send repeated start
+  if(ack!=0){
+    Serial.print("(Error: ");
+    Serial.print(ack);
+    Serial.print(")");
+  }
+   Wire.requestFrom(addr, 1,(uint8_t) true);    // request bytes from slave device
+   while (Wire.available()) { // if bytes were received
+    Serial.print("0b");
+    Serial.println(Wire.read(),BIN);//Show result in binary
+   }
+}
+
+void showStatus(){
+  Serial.print("Status: ");
+  Wire.beginTransmission(addr);
+  Wire.write(0x78); // Write command code
+  int ack = Wire.endTransmission(false); // Send repeated start
+  if(ack!=0){
+    Serial.print("(Error: ");
+    Serial.print(ack);
+    Serial.print(")");
+  }
+   Wire.requestFrom(addr, 1,(uint8_t) true);    // request bytes from slave device
+   while (Wire.available()) { // if bytes were received
+    Serial.print("0b");
+    Serial.println(Wire.read(),BIN);//Show status register in binary
+   }
+}
+
+int convertToUnits(int m, int y, int r, int b){
+  return (1/m)*(y*(10^(-r))-b);
 }
 
 void scanForAddresses(){
@@ -48,22 +101,4 @@ void scanForAddresses(){
   Serial.print ("Found ");
   Serial.print (count, DEC);
   Serial.println (" device(s).");
-}
-
-void writeSignal(int command){
-  
-  int ack = 0;
-  
-  Serial.print("Transmit Command: 0x");
-  Serial.print(command,HEX);
-  Wire.beginTransmission(addr);
-  Wire.write(command); // Write command code
-  ack = Wire.endTransmission();
-  if(ack==0){
-    Serial.println(" Success.");
-  }
-  else{
-    Serial.print("ACK was not received. Error code: ");
-    Serial.println(ack);
-  }
 }

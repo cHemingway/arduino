@@ -447,8 +447,8 @@ class ArmRotation: public Output {
       this->partID = partID;
 
       // Set limit and starting values
-      maxValue = 1900;
-      minValue = 1100;
+      maxValue = 1650;
+      minValue = 1350;
       currentValue = stoppedValue;
       servo.attach(inputPin); // Associate the servo with the specified pin
       pin = inputPin; // Record the associated pin

@@ -545,9 +545,11 @@ class Mapper {
       for ( int i = 0; i < tCount-3; i++) {
         tObjects[i] = new Thruster(2+i, tIDs[i]);
       }
-      
+      delay(2000);
       tObjects[8] = new ArmRotation(10, tIDs[8]);
+      delay(2000);
       tObjects[9] = new ArmGripper(11, tIDs[9],26,27);
+      delay(2000);
       tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box
     }
     

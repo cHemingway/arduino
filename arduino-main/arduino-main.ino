@@ -542,13 +542,13 @@ class Mapper {
   public:
     void mapT(){
       // Map and initialise thrusters
-      for ( int i = 0; i < tCount; i++) {
+      for ( int i = 0; i < tCount-3; i++) {
         tObjects[i] = new Thruster(2+i, tIDs[i]);
       }
       
-      tObjects[10] = new ArmRotation(10, tIDs[10]);
-      tObjects[11] = new ArmGripper(11, tIDs[11],26,27);
-      tObjects[12] = new ArmGripper(12, tIDs[12],28,29); // Fish box
+      tObjects[8] = new ArmRotation(10, tIDs[8]);
+      tObjects[9] = new ArmGripper(11, tIDs[9],26,27);
+      tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box
     }
     
     void mapI(){

@@ -716,6 +716,7 @@ void setup() {
 void loop() {  
   // parse the string when a newline arrives:
   if (stringComplete) {
+    
 
     // DEBUG line for Kacper - prints the received string
     Serial.println(inputString);
@@ -737,8 +738,8 @@ void loop() {
 // START DIRTY HACK
 // Return the received message back with BACK_ prepended to each key.
 
-String resString;
-      const int capacity = 100;
+      String resString;
+      const int capacity = 1000;
       StaticJsonBuffer<capacity> jb;
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
@@ -774,6 +775,7 @@ String resString;
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
+    
 
     // Update time last message received
     lastMessage = millis();

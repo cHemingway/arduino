@@ -716,6 +716,10 @@ void setup() {
 void loop() {  
   // parse the string when a newline arrives:
   if (stringComplete) {
+
+    // DEBUG line for Kacper - prints the received string
+    Serial.println(inputString);
+
     
     // Set up JSON parser
     StaticJsonBuffer<1000> jsonBuffer;

@@ -819,7 +819,7 @@ void serialEvent() {
     char inChar = (char)Serial.read();
     // add it to the inputString:
     if (inChar == '\n' || inChar == '\r') {
-      Serial.println(inputString);
+//      Serial.println(inputString);
       stringComplete = true;
       break;
     }

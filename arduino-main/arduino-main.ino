@@ -1,3 +1,4 @@
+
 /* Program to recieve and parse an incoming JSON string */
 /* Main IO code based on https://www.arduino.cc/en/Tutorial/SerialEvent */
 /* JSON parser code from https://arduinojson.org/v5/example/parser/ */
@@ -15,6 +16,7 @@
 //Depth
 #include <Wire.h>
 #include "MS5837.h"
+#include <Adafruit_MAX31865.h>
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -315,6 +317,52 @@ class PHSensor: public Input {
     }
 };
 
+class Temperature: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    //bool initialised = false;
+    // Use software SPI: CS, DI, DO, CLK
+    Adafruit_MAX31865 max = Adafruit_MAX31865(10, 11, 12, 13);
+
+  public:
+    Temperature(String incomingPartID){
+      Wire.begin();
+      // Run parent method
+      partID = incomingPartID;
+    }
+
+    int getValue() {
+      //max.temperature(100, RREF); // Get temperature
+      communication.bufferValue(this->partID,String(max.temperature(100, 430)));
+      // Check and print any faults
+      uint8_t fault = max.readFault();
+      if (fault) {
+        Serial.print("Fault 0x"); Serial.println(fault, HEX);
+        if (fault & MAX31865_FAULT_HIGHTHRESH) {
+          Serial.println("RTD High Threshold"); 
+        }
+        if (fault & MAX31865_FAULT_LOWTHRESH) {
+          Serial.println("RTD Low Threshold"); 
+        }
+        if (fault & MAX31865_FAULT_REFINLOW) {
+          Serial.println("REFIN- > 0.85 x Bias"); 
+        }
+        if (fault & MAX31865_FAULT_REFINHIGH) {
+          Serial.println("REFIN- < 0.85 x Bias - FORCE- open"); 
+        }
+        if (fault & MAX31865_FAULT_RTDINLOW) {
+          Serial.println("RTDIN- < 0.85 x Bias - FORCE- open"); 
+        }
+        if (fault & MAX31865_FAULT_OVUV) {
+          Serial.println("Under/Over voltage"); 
+        }
+        max.clearFault();
+      }
+    }
+};
+
+
 
 /* ===========================Outputs=========================== */
 
@@ -524,9 +572,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"};
 
     // i for Ard_I (Input)
-    const static int iCount=3;
+    const static int iCount=4;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp"};
 
     // a for Ard_A (Arm)
     const static int aCount=4;
@@ -558,6 +606,7 @@ class Mapper {
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
+      iObjects[3] = new Temperature(iIDs[3]);
     }
 
     void mapA(){

@@ -737,6 +737,26 @@ void loop() {
       return;
     }
     safetyActive = false; // Switch off auto-off because valid message received
+
+// START DIRTY HACK
+// Return the received message back with BACK_ prepended to each key.
+
+      String resString;
+      const int capacity = 1000;
+      StaticJsonBuffer<capacity> jb;
+      JsonObject& res = jb.createObject();
+      res["deviceID"] = arduinoID; // add Arduino ID to every message
+
+     for(const auto& current: root){
+        // For each incoming value
+        String tempStuff = "BACK_"+String(current.key);
+        res[tempStuff] = current.value;
+      }
+      res.printTo(Serial);
+      Serial.println();
+
+// END DIRTY HACK
+
     
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
@@ -758,6 +778,7 @@ void loop() {
     // clear the string ready for the next input
     inputString = "";
     stringComplete = false;
+    
 
     // Update time last message received
     lastMessage = millis();
@@ -816,5 +837,6 @@ void serialEvent() {
       }
     }
     inputString += inChar;
+   
   }
 }

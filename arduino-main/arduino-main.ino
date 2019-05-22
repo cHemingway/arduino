@@ -21,6 +21,7 @@
 /* ============================================================ */
 String inputString = "";         // a String to hold incoming data
 bool stringComplete = false;  // whether a full JSON string has been received
+bool executionComplete = true; // whether the current main loop has completed before receiving a new message
 String arduinoID = "";
 bool sensors = false;
 
@@ -716,7 +717,9 @@ void setup() {
 void loop() {  
   // parse the string when a newline arrives:
   if (stringComplete) {
-
+    // ignore incoming messages while this is running
+    executionComplete = false;
+    
     // DEBUG line for Kacper - prints the received string
     Serial.println(inputString);
 
@@ -730,6 +733,7 @@ void loop() {
       communication.sendAll();
       inputString = "";
       stringComplete = false;
+      executionComplete = true;
       return;
     }
     safetyActive = false; // Switch off auto-off because valid message received
@@ -757,6 +761,9 @@ void loop() {
 
     // Update time last message received
     lastMessage = millis();
+
+    // stop ignoring messages
+    executionComplete = true;
     
   }
 
@@ -797,8 +804,16 @@ void serialEvent() {
     char inChar = (char)Serial.read();
     // add it to the inputString:
     if (inChar == '\n' || inChar == '\r') {
-      stringComplete = true;
-      break;
+      if(executionComplete){
+        stringComplete = true;
+        break;
+      }
+      else{
+        // If not finished executing last message, ignore this one
+        inputString = "";
+        stringComplete = false;
+        break;
+      }
     }
     inputString += inChar;
   }

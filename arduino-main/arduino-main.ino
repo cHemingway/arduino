@@ -21,16 +21,9 @@
 /* ============================================================ */
 String inputString = "";         // a String to hold incoming data
 bool stringComplete = false;  // whether a full JSON string has been received
-String arduinoID = "";
-bool sensors = false;
-
-unsigned long lastMessage;
-bool safetyActive = false;
-
-
-
-
-// TODO set up some sort of mapping from the JSON ID to device object
+String arduinoID = "";  // JSON ID representing this Arduino (read from long-term memory)
+unsigned long lastMessage; // The timestamp of when the last message was received
+bool safetyActive = false; // Whether output devices are stopped because no data was received
 
 /* ============================================================ */
 /* =======================Set up classes======================= */
@@ -38,8 +31,10 @@ bool safetyActive = false;
 
 /* ==========================Communication========================== */
 
-// Class to handle sending values back up to the surface
-
+/*
+  The communication class is the implementation of the method of communicating with the Raspberry Pi.
+  External methods can buffer data to be sent to the Pi, and this class will handle conversion to JSON and other formatting.
+*/
 class Communication{
   private:
     static const int elementCount = 20;
@@ -48,20 +43,31 @@ class Communication{
     int currentPosition = 0; // value of next free space
     
   public:
+    /*
+      Increment currentValue and send all values if buffer is full
+    */
     void incrementPosition(){
-      // increment currentValue and send if over limit
+
       currentPosition++;
       if(currentPosition>=elementCount){
         sendAll();
         currentPosition = 0;
       }
     }
+
+    /*
+      Buffer a key:value pair to be sent to the Pi
+    */
     void bufferValue(String device, String incomingValue){
       // buffer a key value pair to be sent with next load
       key[currentPosition] = device;
       value[currentPosition] = incomingValue;
       incrementPosition();
     }
+
+    /*
+      Buffer an error message to be sent to the PI
+    */
     void bufferError(String errorMessage){
       // buffer an error message to be sent with next load
       String tempKey = "error_" + String(char(EEPROM.read(0)));
@@ -69,6 +75,10 @@ class Communication{
       value[currentPosition] = errorMessage;
       incrementPosition();
     }
+
+    /*
+      Send the current status of this Arduino (e.g. booting)
+    */
     void sendStatus(String status){
       // immediately sends current status to pi
       String resString;
@@ -81,6 +91,10 @@ class Communication{
       res.printTo(Serial);
       Serial.println();
     }
+
+    /*
+      Send all buffered values to the Pi
+    */
     void sendAll(){
       String resString;
       const int capacity = 1000; // Not sure about this size - probably needs calculating
@@ -97,44 +111,54 @@ class Communication{
     }
 };
 
-Communication communication;
+Communication communication; // Object to handle communication between Arduino and Pi
 
 /* ==========================Abstract========================== */
 
-
+/*
+  An abstract Input which has generic fields for the associated physical pin and JSON ID.
+  Also has generic method for reading the values from a sensor.
+*/
 class Input {
-    // Designed to be a generic interface for all output devices.
 
   protected:
     int pin=0; // The physical pin this is associated with
-    String partID="Part ID not set.";
+    String partID="Part ID not set."; // The JSON Part ID of this device
 
   public:
     Input() {
       //Empty constructor to create harmless input
     }
 
+    // Get the current value of this device (EG: Temperature)
     virtual int getValue() {
-      // Get the current value of this device (EG: Temperature)
+      
     }
 };
 
+/*
+  An abstract Output which has generic fields for the associated physical pin, min value, max value, stopped value, current value, and JSON ID.
+  Also has generic methods for setting a new value (e.g. motor speed) with validation, getting the current value, getting the JSON ID, and switching this device off for safety.
+*/
 class Output {
     // Designed to be a generic interface for all output devices.
 
   protected:
-    int maxValue=0;
-    int minValue=0;
-    int currentValue=0;
-    int stoppedValue=0;
+    int maxValue=0; // The maximum value accepted to control this device
+    int minValue=0; // The minimum value accepted to control this device
+    int currentValue=0; // The current value of this device (e.g. PWM value representing speed)
+    int stoppedValue=0; // The control value (e.g. PWM value representing speed) which means this device is stopped/not moving
     int pin=0; // The physical pin this is associated with
-    String partID="part ID not set";
+    String partID="part ID not set"; // The JSON Part ID of this device
 
   public:
     Output() {
       //Empty constructor to create harmless output
     }
 
+    /*
+      Control this device. This method will take e.g. a pwm thruster value representing speed and set the thruster to this value.
+    */
     virtual int setValue(int inputValue) {
       int value = inputValue;
       // Method to set thrust capped to min and max
@@ -151,28 +175,39 @@ class Output {
       // Then set the value on the device
     }
 
+    /*
+      Get the current value of this device (EG: Servo position)
+    */
     virtual int getValue() {
-      // Get the current value of this device (EG: Servo position)
       return currentValue;
     }
 
+    /*
+      Something which needs to be run all the time
+    */
     virtual void constantTask(){
-      // Something which needs to be run all the time
     }
 
+    /*
+      Get the JSON ID for this device
+    */
     String getID (){
       return partID;
     }
 
+    /*
+      Switch device off - for safety
+    */
     virtual void turnOff(){
-      // Switch device off - for safety
     }
 };
 
 
 /* ===========================Inputs=========================== */
 
-
+/*
+  The IMU class reads data from the IMU's sensors (position, acceleration, temperature) and sends this to the Pi using the communication class.
+*/
 class IMU: public Input { 
     // Designed to be a generic interface for all output devices.
 
@@ -231,6 +266,9 @@ class IMU: public Input {
     }
 };
 
+/*
+  The Depth class represents the BlueRobotics pressure sensor (measuring depth and external temperature) and sends this to the Pi using the communication class.
+*/
 class Depth: public Input {
     // Designed to be a generic interface for all output devices.
 
@@ -272,6 +310,9 @@ class Depth: public Input {
     }
 };
 
+/*
+  The PHSensor class represents a PH sensor which measures the water outside the ROV and sends the data to the Pi using the communication class.
+*/
 class PHSensor: public Input {
     // Designed to be a generic interface for all output devices.
 
@@ -318,7 +359,10 @@ class PHSensor: public Input {
 
 /* ===========================Outputs=========================== */
 
-
+/*
+  The Thruster class represents a BlueRobotics T100 or T200 PWM Thruster.
+  It takes values between 1100 and 1900 to control the rotation speed and direction of the thruster.
+*/
 class Thruster: public Output {
 
   protected:
@@ -358,7 +402,11 @@ class Thruster: public Output {
     }
 };
 
-
+/*
+  The ArmGripper class represents a BlueRobotics M100 or M200 PWM motor.
+  It takes values between 1100 and 1900 to control the rotation speed and direction of the motor.
+  It also has the option of limit switches to stop movement in one direction if pressed.
+*/
 class ArmGripper: public Output {
 
   protected:
@@ -434,10 +482,15 @@ class ArmGripper: public Output {
     }
 };
 
+/*
+  The ArmRotation class represents a BlueRobotics M100 or M200 PWM motor.
+  It takes values between 1100 and 1900 to control the rotation speed and direction of the motor.
+  This is similar to ArmGripper except it does not have the option for limit switches.
+*/
 class ArmRotation: public Output {
 
   protected:
-    // Represents a servo controlling arm rotation
+    // Represents a motor controlling arm rotation
     Servo servo;
     const int stoppedValue=1500;
     
@@ -450,7 +503,7 @@ class ArmRotation: public Output {
       maxValue = 1650;
       minValue = 1350;
       currentValue = stoppedValue;
-      servo.attach(inputPin); // Associate the servo with the specified pin
+      servo.attach(inputPin); // Associate the motor with the specified pin
       pin = inputPin; // Record the associated pin
       servo.writeMicroseconds(stoppedValue); // Set value to "stopped"
     }
@@ -472,118 +525,64 @@ class ArmRotation: public Output {
     }
 };
 
-class Lamp: public Output { //todo
-
-  protected:
-    // Represents a dimmable light
-    Servo led;
-    const int stoppedValue=1100;
-    
- public:
-
-    Lamp (int inputPin, String partID) {
-      this->partID = partID;
-
-      // Set limit and starting values
-      maxValue = 1900;
-      minValue = 1100;
-      currentValue = stoppedValue;
-      led.attach(inputPin); // Associate with the specified pin
-      pin = inputPin; // Record the associated pin
-      led.writeMicroseconds(stoppedValue); // Set value to "stopped"
-    }
-
-
-    int setValue(int inputValue) {
-      // call parent logic (keeps value within preset boundary)
-      int value = Output::setValue(inputValue);
-      // Actually control the device
-      led.writeMicroseconds(value);
-      // Return the set value
-      return value;
-    }
-
-    void turnOff(){
-      // Switch off in case of emergency
-      //(Do nothing - it's just an LED)
-    }
-};
-
 /* ==========================Mapper========================== */
-
-// Maps device ID strings to object pointers
-
+/*
+  The Mapper class is a lightweight replacement for a map/dictionary structure.
+  Each Arduino ID has its own array of Strings for JSON IDs, which correspond to Input or Output objects to control devices.
+*/
 class Mapper {
   private:
     // t for Ard_T (Thrusters)
-    const static int tCount=11;
-    //const static int tCount=8;
-    Output* tObjects[tCount];
-    //String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS"};
-    // Aberdeen change
-    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"};
+    const static int tCount=11; // Number of devices attached to Arduino T
+    Output* tObjects[tCount];  // Devices attached to Arduino T
+    String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"}; // Device IDs of those attached to Arduino T
 
     // i for Ard_I (Input)
-    const static int iCount=3;
-    Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"};
-
-    // a for Ard_A (Arm)
-    const static int aCount=4;
-    Output* aObjects[aCount];
-    String aIDs[aCount] = {"Mot_R", "Mot_G", "Mot_F", "LED_M"};
+    const static int iCount=3; // Number of devices attached to Arduino I
+    Input* iObjects[iCount]; // Devices attached to Arduino I
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"}; // Device IDs of those attached to Arduino I
 
     // m for Ard_M (Micro ROV)
-    const static int mCount=1;
-    Output* mObjects[mCount];
-    String mIDs[mCount] = {"Thr_M"};
+    const static int mCount=1; // Number of devices attached to Arduino M
+    Output* mObjects[mCount]; // Devices attached to Arduino M
+    String mIDs[mCount] = {"Thr_M"}; // Device IDs of those attached to Arduino M
 
     
   public:
     void mapT(){
       // Map and initialise thrusters
-      for ( int i = 0; i < tCount-3; i++) {
-        tObjects[i] = new Thruster(2+i, tIDs[i]);
+      int numberOfThrusters = 8;
+      for ( int i = 0; i < numberOfThrusters; i++) {
+        tObjects[i] = new Thruster(2+i, tIDs[i]); // The 8 movement Thrusters
       }
+      // Delays between each device so they initialise separately. This helps to give an auditory signal that everything is connected properly.
       delay(2000);
-      tObjects[8] = new ArmRotation(10, tIDs[8]);
+      tObjects[8] = new ArmRotation(10, tIDs[8]); // Rotation motor for the arm
       delay(2000);
-      tObjects[9] = new ArmGripper(11, tIDs[9],26,27);
+      tObjects[9] = new ArmGripper(11, tIDs[9],26,27); // Gripper motor for the arm
       delay(2000);
-      tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box
+      tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box opening
     }
     
     void mapI(){
-      // Map and initialise inputs
+      // Map and initialise sensors
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
     }
 
-    void mapA(){
-      aObjects[0] = new ArmRotation(2, aIDs[0]);
-      aObjects[1] = new ArmGripper(3, aIDs[1],10,11);
-      aObjects[2] = new ArmGripper(4, aIDs[2],12,13); // Fish box
-      aObjects[3] = new Lamp(5,aIDs[3]);
-    }
-
     void mapM(){
-      mObjects[0] = new Thruster(3,mIDs[0]);
-      
+      mObjects[0] = new Thruster(3,mIDs[0]); // Micro ROV Thruster
     }
     
+    /*
+      Get the object representing an output device connected to this Arduino with the specified JSON ID
+     */
     Output* getOutput(String jsonID){
       if(arduinoID=="Ard_T"){
         for(int i = 0; i < tCount; i++){
           if(jsonID == tIDs[i]){
             return tObjects[i];
-          }
-        }
-      }
-      else if(arduinoID=="Ard_A"){
-        for(int i = 0; i < aCount; i++){
-          if(jsonID == aIDs[i]){
-            return aObjects[i];
           }
         }
       }
@@ -606,6 +605,9 @@ class Mapper {
       return new Output();
     }
     
+    /*
+      Get the object representing a senor connected to this Arduino with the specified JSON ID
+     */
     Input* getInput(String jsonID){
       if(arduinoID=="Ard_I"){
         for(int i = 0; i < iCount; i++){
@@ -625,16 +627,19 @@ class Mapper {
       communication.bufferError(errorMessage);
     }
 
+    /*
+      Get the number of sensors
+     */
     int getNumberOfInputs(){
       return iCount;
     }
 
+    /*
+      Get the number of output devices connected to this Arduino
+     */
     int getNumberOfOutputs(){
       if(arduinoID == "Ard_T"){
         return tCount;
-      }
-      else if(arduinoID == "Ard_A"){
-        return aCount;
       }
       else if(arduinoID == "Ard_M"){
         return mCount;
@@ -642,6 +647,9 @@ class Mapper {
       return 0;
     }
 
+    /*
+      Read data from all sensors and send this to the Pi
+     */
     void sendAllSensors(){
       for(int i = 0; i < iCount; i++){
         iObjects[i]->getValue();
@@ -649,16 +657,15 @@ class Mapper {
       communication.sendAll();
     }
 
-    void stopOutputs(){ // safety function to turn everything off
+    /*
+      Switch off all devices attached to this Arduino.
+      This is primarily a safety feature to be used if no control signals are being received.
+     */
+    void stopOutputs(){
       if(arduinoID == "Ard_T"){
         for(int i = 0; i < tCount; i++){
           tObjects[i]->turnOff();
           delay(125); // delay 125ms between each thruster to avoid sudden power halt
-        }
-      }
-      else if(arduinoID == "Ard_A"){
-        for(int i = 0; i < aCount; i++){
-          aObjects[i]->turnOff();
         }
       }
       else if(arduinoID == "Ard_M"){
@@ -675,10 +682,7 @@ class Mapper {
     
 };
 
-Mapper mapper; // Declare a new mapper object to map IDs to devices
-
-
-
+Mapper mapper; // Lightweight replacement for a map/dictionary structure to map JSON IDs to objects representing devices.
 
 /* ============================================================ */
 /* =======================Setup function======================= */
@@ -699,9 +703,6 @@ void setup() {
   }
   else if (arduinoID == "Ard_I"){
     mapper.mapI();
-  }
-  else if (arduinoID == "Ard_A") {
-    mapper.mapA();
   }
   else if (arduinoID == "Ard_M"){
     mapper.mapM();
@@ -731,8 +732,7 @@ void loop() {
     safetyActive = false; // Switch off auto-off because valid message received
     
     // Act on incoming message accordingly
-    if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
-      // This Arduino is for outputting
+    if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
       for(const auto& current: root){
         // For each incoming value
         mapper.getOutput(current.key)->setValue(current.value);
@@ -757,14 +757,8 @@ void loop() {
   }
 
   // Code to run all the time goes here:
-
-  if(arduinoID=="Ard_A"){
-    //mapper.getOutput("Mot_G")->constantTask(); // Keep checking if gripper limit hit (TODO: automatically run all constant tasks)
-    //mapper.getOutput("Mot_F")->constantTask(); 
-  }
-
   
-  if(arduinoID=="Ard_T" || arduinoID=="Ard_M" || arduinoID=="Ard_A"){
+  if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
     // This Arduino is for outputting
     // Check if it's been too long since last message - bad sign
     // Turn everything off

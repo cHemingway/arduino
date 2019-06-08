@@ -549,8 +549,10 @@ class Mapper {
 
     
   public:
+    /*
+      Assign JSON IDs to devices on this Arduino
+    */
     void mapT(){
-      // Map and initialise thrusters
       int numberOfThrusters = 8;
       for ( int i = 0; i < numberOfThrusters; i++) {
         tObjects[i] = new Thruster(2+i, tIDs[i]); // The 8 movement Thrusters
@@ -564,6 +566,9 @@ class Mapper {
       tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box opening
     }
     
+    /*
+      Assign JSON IDs to sensors on this Arduino
+    */
     void mapI(){
       // Map and initialise sensors
       iObjects[0] = new IMU(0,iIDs[0]);
@@ -571,6 +576,9 @@ class Mapper {
       iObjects[2] = new PHSensor(56,iIDs[2]);
     }
 
+    /*
+      Assign JSON IDs to devices on this Arduino
+    */
     void mapM(){
       mObjects[0] = new Thruster(3,mIDs[0]); // Micro ROV Thruster
     }

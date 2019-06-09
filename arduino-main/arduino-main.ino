@@ -68,18 +68,18 @@ class Communication{
     /*
       Buffer an error message to be sent to the PI
     */
-    void bufferError(String errorMessage){
+    void bufferError(int code){
       // buffer an error message to be sent with next load
-      String tempKey = "error_" + String(char(EEPROM.read(0)));
+      String tempKey = "status_" + String(char(EEPROM.read(0)));
       key[currentPosition] = tempKey;
-      value[currentPosition] = errorMessage;
+      value[currentPosition] = code;
       incrementPosition();
     }
 
     /*
       Send the current status of this Arduino (e.g. booting)
     */
-    void sendStatus(String status){
+    void sendStatus (int status){
       // immediately sends current status to pi
       String resString;
       const int capacity = 100;
@@ -96,6 +96,9 @@ class Communication{
       Send all buffered values to the Pi
     */
     void sendAll(){
+      if(currentPosition == 0) {
+        return;
+      }
       String resString;
       const int capacity = 1000; // Not sure about this size - probably needs calculating
       StaticJsonBuffer<capacity> jb;
@@ -132,7 +135,7 @@ class Input {
 
     // Get the current value of this device (EG: Temperature)
     virtual int getValue() {
-      
+      return 0;
     }
 };
 
@@ -165,7 +168,7 @@ class Output {
 
       if (value < minValue || value > maxValue) {
         // Send error message saying the incoming value was out of range
-        communication.bufferError("Incoming value out of range.");
+        communication.sendStatus(-1);
         return currentValue; // Keep output at same value
       }
       else{
@@ -179,7 +182,7 @@ class Output {
       Get the current value of this device (EG: Servo position)
     */
     virtual int getValue() {
-      return currentValue;
+      return 0;
     }
 
     /*
@@ -222,7 +225,7 @@ class IMU: public Input {
       if(!imu.begin())
       {
         // Send error message
-        communication.bufferError("IMU BNO055 not found. Check wiring.");
+        communication.sendStatus(-2);
       }
       else{
         imu.setExtCrystalUse(true);
@@ -256,13 +259,14 @@ class IMU: public Input {
         communication.bufferValue(this->partID+"_AccX",String(euler.x()));
         communication.bufferValue(this->partID+"_AccY",String(euler.y()));
         communication.bufferValue(this->partID+"_AccZ",String(euler.z()));
-
+        
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
-        communication.bufferError("IMU BNO055 not initialised.");
+        communication.sendStatus(-3);
+        return -1;
       }
-      
+      return 0;
     }
 };
 
@@ -284,7 +288,7 @@ class Depth: public Input {
       if(!depthSensor.init())
       {
         // Send error message
-        communication.bufferError("Depth Sensor not found. Check wiring.");
+        communication.sendStatus(-4);
       }
       else{
         depthSensor.setModel(MS5837::MS5837_30BA);
@@ -304,9 +308,10 @@ class Depth: public Input {
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
-        communication.bufferError("Depth sensor not initialised.");
+        communication.sendStatus(-5);
+        return -1;
       }
-      
+      return 0;
     }
 };
 
@@ -353,6 +358,7 @@ class PHSensor: public Input {
       float phValue=(float)avgValue*5.0/1024/6; //convert the analog into millivolt
       phValue=3.5*phValue;                      //convert the millivolt into pH value
       communication.bufferValue(this->partID,String(phValue)); // Send averaged sensor value
+      return 0;
     }
 };
 
@@ -451,7 +457,7 @@ class ArmGripper: public Output {
 
     bool hitLeftLimit(){ // check if a limit switch was hit
       if(digitalRead(leftLimit)==LOW && currentValue<stoppedValue){ // Low = pressed
-        communication.bufferError("Left gripper limit hit. Motor stopped.");
+        communication.sendStatus(2);
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
         return true;
@@ -462,7 +468,7 @@ class ArmGripper: public Output {
       //Serial.println("Pin is");
       //Serial.println(rightLimit);
       if(digitalRead(rightLimit)==LOW && currentValue>stoppedValue){ // Low = pressed
-        communication.bufferError("Right gripper limit hit. Motor stopped.");
+        communication.sendStatus(3);
         currentValue = stoppedValue;
         thruster.writeMicroseconds(currentValue);
         return true;
@@ -604,12 +610,12 @@ class Mapper {
       else{
         // Send error message saying the Arduino was not found
         String errorMessage = "getOutput method doesn't have an option for "+arduinoID;
-        communication.bufferError(errorMessage);
+        communication.sendStatus(-6);
         return new Output();
       }
       // Send error message saying the device was not found
       String errorMessage = "Output device ID is not valid: "+jsonID;
-      communication.bufferError(errorMessage);
+      communication.sendStatus(-8);
       return new Output();
     }
     
@@ -627,12 +633,12 @@ class Mapper {
       else{
         // Send error message saying the Arduino was not found
         String errorMessage = "getInput method doesn't have an option for "+arduinoID;
-        communication.bufferError(errorMessage);
+        communication.sendStatus(-7);
         return new Input();
       }
       // Send error message saying the device was not found
       String errorMessage = "Input device ID is not valid: "+jsonID;
-      communication.bufferError(errorMessage);
+      communication.sendStatus(-9);
     }
 
     /*
@@ -659,8 +665,16 @@ class Mapper {
       Read data from all sensors and send this to the Pi
      */
     void sendAllSensors(){
-      for(int i = 0; i < iCount; i++){
-        iObjects[i]->getValue();
+      int retcode = 0;
+      for(int i = 0; i < iCount; i++){       
+        if (retcode == 0) {
+        retcode = iObjects[i]->getValue();
+        } else {
+          iObjects[i]->getValue();
+        }
+      }
+      if(retcode == 0) {
+        communication.sendStatus(0);
       }
       communication.sendAll();
     }
@@ -683,9 +697,9 @@ class Mapper {
       }
       else{
         // Send error message saying the Arduino was not found
-        communication.bufferError("Can't call stopOutputs from a non-output Arduino.");
+        communication.sendStatus(-10);
       }
-      communication.sendStatus("Outputs halted.");
+      communication.sendStatus(1);
     }
     
 };
@@ -700,7 +714,7 @@ void setup() {
   
   // initialize serial:
   Serial.begin(9600);
-  communication.sendStatus("Arduino Booting.");
+  communication.sendStatus(4);
   // reserve 2000 bytes for the inputString:
   inputString.reserve(200);
 
@@ -716,7 +730,7 @@ void setup() {
     mapper.mapM();
   }
   communication.sendAll();
-  communication.sendStatus("Arduino Active.");
+  communication.sendStatus(0);
 }
 
 /* ============================================================ */
@@ -731,7 +745,7 @@ void loop() {
     JsonObject& root = jsonBuffer.parseObject(inputString);
     // Test if parsing succeeds.
     if (!root.success()) {
-      communication.bufferError("JSON parsing failed.");
+      communication.sendStatus(-11);
       communication.sendAll();
       inputString = "";
       stringComplete = false;
@@ -743,14 +757,17 @@ void loop() {
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
       for(const auto& current: root){
         // For each incoming value
-        mapper.getOutput(current.key)->setValue(current.value);
+        int setValue = mapper.getOutput(current.key)->setValue(current.value);
+        if(setValue == current.value) {
+          communication.sendStatus(0);
+        }
       }
     }
     else if (arduinoID=="Ard_I"){
       
     }
     else{
-      communication.bufferError("Arduino ID not set up. This Arduino will not function");
+      communication.sendStatus(-12);
     }
 
     // Finish by sending all the values
@@ -772,7 +789,7 @@ void loop() {
     // Turn everything off
     if(millis() - lastMessage > 1000 && !safetyActive){ // 1 second limit
       safetyActive = true; //activate safety
-      communication.bufferError("No incoming data received for more than 1 second. Switching all devices off");
+      communication.sendStatus(-13);
       communication.sendAll();
       mapper.stopOutputs();
     }

@@ -50,5 +50,31 @@ Thrusters are given an ID which describes their position on the ROV.
 | 3   | Thr_M   | Micro ROV Thruster                          |
 
 
+### Ret Codes
 
-
+| Return Code   | Description                                               |
+|---------------|-----------------------------------------------------------|
+|    0          | No Error                                                  |
+|    1          | Outputs Halted.                                           |
+|    2          | Left limit hit. Motor stopped                             |
+|    3          | Right limit hit. Motor stopped                            |
+|    4          | Arduino Booting                                           |
+|   -1          | Incoming value out of range                               |
+|   -2          | IMU BNO055 not found. Check wiring                        |
+|   -3          | IMU BNO055 not initialised                                |
+|   -4          | Depth Sensor not found. Check wiring                      |
+|   -5          | Depth sensor not initialised                              |
+|   -6          | getOutput method doesn't have an option for Arduino       |
+|   -7          | getInput method doesn't have an option for Arduino        |
+|   -8          | Output device ID is not valid                             |
+|   -9          | Input device ID is not valid                              |
+|   -10         | Can't call stopOutputs from a non-output Arduino          |
+|   -11         | JSON parsing failed                                       |
+|   -12         | Arduino ID not set up.                                    |
+|   -13         | No message received in the last second. Outputs Halted.   |
+|   -14         | RTD High Threshold                                        |
+|   -15         | RTD Low Threshold                                         |
+|   -16         | REFIN- > 0.85 x Bias                                      |
+|   -17         | REFIN- < 0.85 x Bias - FORCE- open                        |
+|   -18         | RTDIN- < 0.85 x Bias - FORCE- open                        |
+|   -19         | Under/Over voltage                                        |

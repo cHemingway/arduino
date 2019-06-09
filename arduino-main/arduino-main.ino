@@ -1,3 +1,4 @@
+
 /* Program to recieve and parse an incoming JSON string */
 /* Main IO code based on https://www.arduino.cc/en/Tutorial/SerialEvent */
 /* JSON parser code from https://arduinojson.org/v5/example/parser/ */
@@ -15,6 +16,7 @@
 //Depth
 #include <Wire.h>
 #include "MS5837.h"
+#include <Adafruit_MAX31865.h>
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -41,7 +43,7 @@ class Communication{
     String key[elementCount];
     String value[elementCount];
     int currentPosition = 0; // value of next free space
-    
+
   public:
     /*
       Increment currentValue and send all values if buffer is full
@@ -211,7 +213,7 @@ class Output {
 /*
   The IMU class reads data from the IMU's sensors (position, acceleration, temperature) and sends this to the Pi using the communication class.
 */
-class IMU: public Input { 
+class IMU: public Input {
     // Designed to be a generic interface for all output devices.
 
   protected:
@@ -242,10 +244,10 @@ class IMU: public Input {
         /* Output the floating point data */
         // x
         communication.bufferValue(this->partID+"_X",String(event.orientation.x));
-  
+
         // y
         communication.bufferValue(this->partID+"_Y",String(event.orientation.y));
-  
+
         // z
         communication.bufferValue(this->partID+"_Z",String(event.orientation.z));
 
@@ -259,7 +261,7 @@ class IMU: public Input {
         communication.bufferValue(this->partID+"_AccX",String(euler.x()));
         communication.bufferValue(this->partID+"_AccY",String(euler.y()));
         communication.bufferValue(this->partID+"_AccZ",String(euler.z()));
-        
+
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -304,7 +306,7 @@ class Depth: public Input {
         communication.bufferValue(this->partID+"_Temp",String(depthSensor.temperature()));
         communication.bufferValue(this->partID+"_Dep",String(depthSensor.depth()));
         communication.bufferValue(this->partID+"_Alt",String(depthSensor.altitude()));
-        
+
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
@@ -328,14 +330,14 @@ class PHSensor: public Input {
     PHSensor(int inputPin, String incomingPartID){
       partID = incomingPartID;
       pin = inputPin;
-      
+
     }
 
     int getValue() {
       // This might need rethinking since it looks a bit s l o w
-      
+
       for(int i=0;i<10;i++)       //Get 10 sample values from the sensor to smooth the result
-      { 
+      {
         buf[i]=analogRead(pin);
         delay(1); // This delay might be too short
       }
@@ -361,6 +363,55 @@ class PHSensor: public Input {
       return 0;
     }
 };
+
+class Temperature: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    //bool initialised = false;
+    // Use software SPI: CS, DI, DO, CLK
+    Adafruit_MAX31865 max = Adafruit_MAX31865(10, 11, 12, 13);
+
+  public:
+    Temperature(String incomingPartID){
+      Wire.begin();
+      // Run parent method
+      partID = incomingPartID;
+      max.begin(MAX31865_3WIRE);
+    }
+
+    int getValue() {
+//      Serial.print("Temp: "); Serial.println(max.temperature(100, 430)); // Get temperature
+      communication.bufferValue(this->partID,String(max.temperature(100, 430)));
+      // Check and print any faults
+      uint8_t fault = max.readFault();
+
+      if (fault) {
+        Serial.print("Fault is: "); Serial.println(fault);
+        Serial.print("Fault 0x"); Serial.println(fault, HEX);
+        if (fault & MAX31865_FAULT_HIGHTHRESH) {
+          communication.sendStatus(-14);
+        }
+        if (fault & MAX31865_FAULT_LOWTHRESH) {
+          communication.sendStatus(-15);
+        }
+        if (fault & MAX31865_FAULT_REFINLOW) {
+          communication.sendStatus(-16);
+        }
+        if (fault & MAX31865_FAULT_REFINHIGH) {
+          communication.sendStatus(-17);
+        }
+        if (fault & MAX31865_FAULT_RTDINLOW) {
+          communication.sendStatus(-18);
+        }
+        if (fault & MAX31865_FAULT_OVUV) {
+          communication.sendStatus(-19);
+        }
+        max.clearFault();
+      }
+    }
+};
+
 
 
 /* ===========================Outputs=========================== */
@@ -430,7 +481,7 @@ class ArmGripper: public Output {
       maxValue = 1900;
       minValue = 1100;
       currentValue = stoppedValue;
-      
+
       thruster.attach(inputPin); // Associate the motor with the specified pin
       pin = inputPin; // Record the associated pin
       thruster.writeMicroseconds(stoppedValue); // Set value to "stopped"
@@ -499,7 +550,7 @@ class ArmRotation: public Output {
     // Represents a motor controlling arm rotation
     Servo servo;
     const int stoppedValue=1500;
-    
+
  public:
 
     ArmRotation (int inputPin, String partID) {
@@ -544,16 +595,16 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"}; // Device IDs of those attached to Arduino T
 
     // i for Ard_I (Input)
-    const static int iCount=3; // Number of devices attached to Arduino I
-    Input* iObjects[iCount]; // Devices attached to Arduino I
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"}; // Device IDs of those attached to Arduino I
+    const static int iCount=4;
+    Input* iObjects[iCount];
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp"};
 
     // m for Ard_M (Micro ROV)
     const static int mCount=1; // Number of devices attached to Arduino M
     Output* mObjects[mCount]; // Devices attached to Arduino M
     String mIDs[mCount] = {"Thr_M"}; // Device IDs of those attached to Arduino M
 
-    
+
   public:
     /*
       Assign JSON IDs to devices on this Arduino
@@ -571,7 +622,7 @@ class Mapper {
       delay(2000);
       tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box opening
     }
-    
+
     /*
       Assign JSON IDs to sensors on this Arduino
     */
@@ -580,6 +631,7 @@ class Mapper {
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
+      iObjects[3] = new Temperature(iIDs[3]);
     }
 
     /*
@@ -588,7 +640,7 @@ class Mapper {
     void mapM(){
       mObjects[0] = new Thruster(3,mIDs[0]); // Micro ROV Thruster
     }
-    
+
     /*
       Get the object representing an output device connected to this Arduino with the specified JSON ID
      */
@@ -618,7 +670,7 @@ class Mapper {
       communication.sendStatus(-8);
       return new Output();
     }
-    
+
     /*
       Get the object representing a senor connected to this Arduino with the specified JSON ID
      */
@@ -666,7 +718,7 @@ class Mapper {
      */
     void sendAllSensors(){
       int retcode = 0;
-      for(int i = 0; i < iCount; i++){       
+      for(int i = 0; i < iCount; i++){
         if (retcode == 0) {
         retcode = iObjects[i]->getValue();
         } else {
@@ -701,7 +753,7 @@ class Mapper {
       }
       communication.sendStatus(1);
     }
-    
+
 };
 
 Mapper mapper; // Lightweight replacement for a map/dictionary structure to map JSON IDs to objects representing devices.
@@ -711,7 +763,7 @@ Mapper mapper; // Lightweight replacement for a map/dictionary structure to map 
 /* =============Runs once when Arduino is turned on============ */
 void setup() {
   arduinoID = "Ard_" + String(char(EEPROM.read(0)));
-  
+
   // initialize serial:
   Serial.begin(9600);
   communication.sendStatus(4);
@@ -736,10 +788,10 @@ void setup() {
 /* ============================================================ */
 /* =======================Loop function======================== */
 /* ======Runs continuously after setup function finishes======= */
-void loop() {  
+void loop() {
   // parse the string when a newline arrives:
   if (stringComplete) {
-    
+
     // Set up JSON parser
     StaticJsonBuffer<1000> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(inputString);
@@ -752,7 +804,7 @@ void loop() {
       return;
     }
     safetyActive = false; // Switch off auto-off because valid message received
-    
+
     // Act on incoming message accordingly
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
       for(const auto& current: root){
@@ -764,7 +816,7 @@ void loop() {
       }
     }
     else if (arduinoID=="Ard_I"){
-      
+
     }
     else{
       communication.sendStatus(-12);
@@ -778,11 +830,11 @@ void loop() {
 
     // Update time last message received
     lastMessage = millis();
-    
+
   }
 
   // Code to run all the time goes here:
-  
+
   if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
     // This Arduino is for outputting
     // Check if it's been too long since last message - bad sign
@@ -798,7 +850,7 @@ void loop() {
     // Output all sensor data
       mapper.sendAllSensors();
   }
-  
+
 }
 
 /*

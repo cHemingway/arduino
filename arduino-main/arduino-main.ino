@@ -15,6 +15,8 @@
 //Depth
 #include <Wire.h>
 #include "MS5837.h"
+//Sonar
+#include "ping1d.h"
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -356,6 +358,50 @@ class PHSensor: public Input {
     }
 };
 
+/*
+  The Sonar class represents the BlueRobotics Sonar (measuring distance) and sends this to the Pi using the communication class.
+*/
+class Sonar: public Input {
+    // Designed to be a generic interface for all output devices.
+
+  protected:
+    bool initialised = false;
+    Ping1D sonar { Serial1 }; // sonar object
+    
+
+  public:
+    Sonar(String incomingPartID){
+      partID = incomingPartID;
+      Serial1.begin(115200); // sonar io
+      if(!sonar.initialize())
+      {
+        // Send error message
+        communication.bufferError("Sonar not found. Check wiring.");
+      }
+      else{
+        initialised = true;
+      }
+    }
+
+    int getValue() {
+      if(initialised){
+        if(sonar.update()){
+          communication.bufferValue(this->partID+"_Dist",String(sonar.distance()));
+          communication.bufferValue(this->partID+"_Conf",String(sonar.confidence()));
+        }
+        else{
+          communication.bufferError("Could not update sonar readings.");
+        }
+      }
+      else{
+        // Throw error because this sensor has not yet been initialised properly
+        communication.bufferError("Sonar not initialised.");
+      }
+      
+    }
+};
+
+
 
 /* ===========================Outputs=========================== */
 
@@ -538,9 +584,9 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"}; // Device IDs of those attached to Arduino T
 
     // i for Ard_I (Input)
-    const static int iCount=3; // Number of devices attached to Arduino I
+    const static int iCount=4; // Number of devices attached to Arduino I
     Input* iObjects[iCount]; // Devices attached to Arduino I
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"}; // Device IDs of those attached to Arduino I
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Sonar"}; // Device IDs of those attached to Arduino I
 
     // m for Ard_M (Micro ROV)
     const static int mCount=1; // Number of devices attached to Arduino M
@@ -574,6 +620,7 @@ class Mapper {
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
+      iObjects[3] = new Sonar(iIDs[3]);
     }
 
     /*

@@ -17,11 +17,11 @@ After running the setup script, flash arduino-main to the device.
 
 ### Arduino T
 
-This Arduino is for controlling the main thrusters.
+This Arduino is for controlling the output devices on the main ROV body.
 
-Values in the range 1100 to 1900 will be accepted for Thruster control where 1100 is full reverse, 1500 is stopped, and 1900 is full forward.
+Values in the range 1100 to 1900 will be accepted for Thruster or Motor control where 1100 is full reverse, 1500 is stopped, and 1900 is full forward. However, it's not advised to use values lower than 1350 or higher than 1650 for arm rotation or fish box due to the gearing on these.
 
-Thrusters are given an ID which describes their position on the ROV.
+Thrusters are given an ID which describes their position on the ROV. Motors are named in a similar fashion.
 
 | Pin | JSON ID | Description                                 |
 |-----|---------|---------------------------------------------|
@@ -33,6 +33,21 @@ Thrusters are given an ID which describes their position on the ROV.
 | 7   | Thr_TFS | Top Forward Starboard Thruster (front left) |
 | 8   | Thr_TAP | Top Aft Port Thruster (back left)           |
 | 9   | Thr_TAS | Top Aft Starboard Thruster (back right)     |
+| 10  | Mot_R   | Arm Rotation Motor                          |
+| 11  | Mot_G   | Arm Gripper Motor                           |
+| 12  | Mot_F   | Fish Box Opening Motor                      |
+
+### Arduino M
+
+This Arduino is for controlling the thruster on the Micro ROV.
+
+Values in the range 1100 to 1900 will be accepted for Thruster or control where 1100 is full reverse, 1500 is stopped, and 1900 is full forward.
+
+Thrusters are given an ID which describes their position on the ROV.
+
+| Pin | JSON ID | Description                                 |
+|-----|---------|---------------------------------------------|
+| 3   | Thr_M   | Micro ROV Thruster                          |
 
 
 

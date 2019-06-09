@@ -432,8 +432,8 @@ class Sonar: public Input {
       Serial1.begin(115200); // sonar io
       if(!sonar.initialize())
       {
-        // Send error message
-        communication.bufferError("Sonar not found. Check wiring.");
+        // Send error message because sensor not found
+        communication.sendStatus(-22);
       }
       else{
         initialised = true;
@@ -447,12 +447,14 @@ class Sonar: public Input {
           communication.bufferValue(this->partID+"_Conf",String(sonar.confidence()));
         }
         else{
+          // Throw error because this sensor could not update
+          communication.sendStatus(-21);
           communication.bufferError("Could not update sonar readings.");
         }
       }
       else{
         // Throw error because this sensor has not yet been initialised properly
-        communication.bufferError("Sonar not initialised.");
+        communication.sendStatus(-20);
       }
       
     }

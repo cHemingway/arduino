@@ -330,14 +330,17 @@ class Temperature: public Input {
       Wire.begin();
       // Run parent method
       partID = incomingPartID;
+      max.begin(MAX31865_3WIRE);
     }
 
     int getValue() {
-      //max.temperature(100, RREF); // Get temperature
+//      Serial.print("Temp: "); Serial.println(max.temperature(100, 430)); // Get temperature
       communication.bufferValue(this->partID,String(max.temperature(100, 430)));
       // Check and print any faults
       uint8_t fault = max.readFault();
+      
       if (fault) {
+        Serial.print("Fault is: "); Serial.println(fault);
         Serial.print("Fault 0x"); Serial.println(fault, HEX);
         if (fault & MAX31865_FAULT_HIGHTHRESH) {
           Serial.println("RTD High Threshold"); 

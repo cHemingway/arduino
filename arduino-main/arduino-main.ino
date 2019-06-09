@@ -390,22 +390,22 @@ class Temperature: public Input {
         Serial.print("Fault is: "); Serial.println(fault);
         Serial.print("Fault 0x"); Serial.println(fault, HEX);
         if (fault & MAX31865_FAULT_HIGHTHRESH) {
-          Serial.println("RTD High Threshold");
+          communication.sendStatus(-14);
         }
         if (fault & MAX31865_FAULT_LOWTHRESH) {
-          Serial.println("RTD Low Threshold");
+          communication.sendStatus(-15);
         }
         if (fault & MAX31865_FAULT_REFINLOW) {
-          Serial.println("REFIN- > 0.85 x Bias");
+          communication.sendStatus(-16);
         }
         if (fault & MAX31865_FAULT_REFINHIGH) {
-          Serial.println("REFIN- < 0.85 x Bias - FORCE- open");
+          communication.sendStatus(-17);
         }
         if (fault & MAX31865_FAULT_RTDINLOW) {
-          Serial.println("RTDIN- < 0.85 x Bias - FORCE- open");
+          communication.sendStatus(-18);
         }
         if (fault & MAX31865_FAULT_OVUV) {
-          Serial.println("Under/Over voltage");
+          communication.sendStatus(-19);
         }
         max.clearFault();
       }

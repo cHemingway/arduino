@@ -72,3 +72,9 @@ Thrusters are given an ID which describes their position on the ROV.
 |   -11         | JSON parsing failed                                       |
 |   -12         | Arduino ID not set up.                                    |
 |   -13         | No message received in the last second. Outputs Halted.   |
+|   -14         | RTD High Threshold                                        |
+|   -15         | RTD Low Threshold                                         |
+|   -16         | REFIN- > 0.85 x Bias                                      |
+|   -17         | REFIN- < 0.85 x Bias - FORCE- open                        |
+|   -18         | RTDIN- < 0.85 x Bias - FORCE- open                        |
+|   -19         | Under/Over voltage                                        |

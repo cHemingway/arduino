@@ -898,7 +898,7 @@ void loop() {
         if(current.key == "Sen_Sonar_Start"){
           setValue = mapper.getInput("Sen_Sonar")->setParam(1,current.value);
         }
-        else if(current.key == "Sen_Sonar_Length"){
+        else if(current.key == "Sen_Sonar_Len"){
           setValue = mapper.getInput("Sen_Sonar")->setParam(2,current.value);
         }
 

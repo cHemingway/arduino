@@ -142,6 +142,12 @@ class Input {
     virtual int getValue() {
       return 0;
     }
+
+    // set parameters for sensor on the fly. e.g. sonar range. Each index would represent a certain property
+    int setParam(int index, int value){
+      // No implementation by default
+      return 0;
+    }
 };
 
 /*
@@ -390,8 +396,6 @@ class Temperature: public Input {
       uint8_t fault = max.readFault();
 
       if (fault) {
-        Serial.print("Fault is: "); Serial.println(fault);
-        Serial.print("Fault 0x"); Serial.println(fault, HEX);
         if (fault & MAX31865_FAULT_HIGHTHRESH) {
           communication.sendStatus(-14);
         }
@@ -424,6 +428,7 @@ class Sonar: public Input {
   protected:
     bool initialised = false;
     Ping1D sonar { Serial1 }; // sonar object
+    int sonStart = 500, sonLen = 30000;
     
 
   public:
@@ -457,6 +462,25 @@ class Sonar: public Input {
         communication.sendStatus(-20);
       }
       
+    }
+
+    /* Set parameters for sensor */
+    int setParam(int index, int value){
+      // Index 1 = start of scanning range
+      // Index 2 = length of scanning range
+      if(index == 1){
+        /* Set the start of the sonar range */
+        sonStart = value;
+        sonar.set_range(sonStart,sonLen);
+      }
+      else if(index == 2){
+        /* Set the length of the sonar range */
+        sonLen = value;
+        sonar.set_range(sonStart,sonLen);
+      }
+      else{
+        //TODO: add error code
+      }
     }
 };
 
@@ -866,7 +890,23 @@ void loop() {
       }
     }
     else if (arduinoID=="Ard_I"){
+      
+      for(const auto& current: root){
+        int setValue = current.value;
+        
+        // Sonar has custom range settings.
+        if(current.key == "Sen_Sonar_Start"){
+          setValue = mapper.getInput("Sen_Sonar")->setParam(1,current.value);
+        }
+        else if(current.key == "Sen_Sonar_Length"){
+          setValue = mapper.getInput("Sen_Sonar")->setParam(2,current.value);
+        }
 
+        if(setValue == current.value) {
+          communication.sendStatus(0);
+        }
+      }
+      
     }
     else{
       communication.sendStatus(-12);

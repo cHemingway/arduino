@@ -81,3 +81,5 @@ Thrusters are given an ID which describes their position on the ROV.
 |   -20         | Sonar not initialised                                     |
 |   -21         | Sonar could not update                                    |
 |   -22         | Sonar not connected                                       |
+|   -23         | Index not valid for setting sensor parameter              |
+

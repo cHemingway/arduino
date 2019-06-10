@@ -479,7 +479,8 @@ class Sonar: public Input {
         sonar.set_range(sonStart,sonLen);
       }
       else{
-        //TODO: add error code
+        // Throw error because not valid index
+        communication.sendStatus(-23);
       }
     }
 };
@@ -911,7 +912,6 @@ void loop() {
     else{
       communication.sendStatus(-12);
     }
-
     // Finish by sending all the values
     communication.sendAll();
     // clear the string ready for the next input

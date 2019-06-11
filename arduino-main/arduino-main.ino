@@ -454,7 +454,14 @@ class Sonar: public Input {
         else{
           // Throw error because this sensor could not update
           communication.sendStatus(-21);
-          communication.bufferError("Could not update sonar readings.");
+          if(!sonar.initialize())
+          {
+            // Send error message because sensor not found
+            communication.sendStatus(-22);
+          }
+          else{
+            initialised = true;
+          }
         }
       }
       else{
@@ -692,9 +699,9 @@ class Mapper {
       delay(2000);
       tObjects[8] = new ArmRotation(10, tIDs[8]); // Rotation motor for the arm
       delay(2000);
-      tObjects[9] = new ArmGripper(11, tIDs[9],26,27); // Gripper motor for the arm
+      tObjects[9] = new ArmGripper(11, tIDs[9],54,55); // Gripper motor for the arm
       delay(2000);
-      tObjects[10] = new ArmGripper(12, tIDs[10],28,29); // Fish box opening
+      tObjects[10] = new ArmGripper(12, tIDs[10],56,57); // Fish box opening
     }
 
     /*

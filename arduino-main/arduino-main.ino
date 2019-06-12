@@ -101,9 +101,9 @@ class Communication{
       Send all buffered values to the Pi
     */
     void sendAll(){
-      if(currentPosition == 0) {
-        return;
-      }
+//      if(currentPosition == 0) {
+//        return;
+//      }
       String resString;
       const int capacity = 1000; // Not sure about this size - probably needs calculating
       StaticJsonBuffer<capacity> jb;

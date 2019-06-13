@@ -30,6 +30,10 @@ String arduinoID = "";  // JSON ID representing this Arduino (read from long-ter
 unsigned long lastMessage; // The timestamp of when the last message was received
 bool safetyActive = false; // Whether output devices are stopped because no data was received
 
+// declaring this globally in hopes of solving a memory leak
+int setValue = 0;
+
+
 /* ============================================================ */
 /* =======================Set up classes======================= */
 /* ============================================================ */
@@ -891,7 +895,10 @@ void loop() {
     if(arduinoID=="Ard_T" || arduinoID=="Ard_M"){
       for(const auto& current: root){
         // For each incoming value
-        mapper.getOutput(current.key)->setValue(current.value);
+        setValue = mapper.getOutput(current.key)->setValue(current.value);
+        if(setValue == current.value) {
+          communication.sendStatus(0);
+        }
       }
     }
     else if (arduinoID=="Ard_I"){

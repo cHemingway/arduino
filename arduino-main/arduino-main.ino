@@ -84,7 +84,7 @@ class Communication{
     /*
       Send the current status of this Arduino (e.g. booting)
     */
-    void sendStatus (int status){
+    void sendStatus (int statusCode){
       // immediately sends current status to pi
       String resString;
       const int capacity = 100;
@@ -92,7 +92,7 @@ class Communication{
       JsonObject& res = jb.createObject();
       res["deviceID"] = arduinoID; // add Arduino ID to every message
       String tempKey = "status_" + String(char(EEPROM.read(0)));
-      res[tempKey] = status;
+      res[tempKey] = statusCode;
       res.printTo(Serial);
       Serial.println();
     }

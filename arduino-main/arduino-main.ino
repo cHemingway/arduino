@@ -17,7 +17,7 @@
 #include <Wire.h>
 #include "MS5837.h"
 //Sonar
-#include "ping1d.h"
+//#include "ping1d.h"
 //Temperature
 #include <Adafruit_MAX31865.h>
 
@@ -419,78 +419,78 @@ class Temperature: public Input {
     }
 };
 
-/*
-  The Sonar class represents the BlueRobotics Sonar (measuring distance) and sends this to the Pi using the communication class.
-*/
-class Sonar: public Input {
-    // Designed to be a generic interface for all output devices.
-
-  protected:
-    bool initialised = false;
-    Ping1D sonar { Serial1 }; // sonar object
-    int sonStart = 500, sonLen = 30000;
-    
-
-  public:
-    Sonar(String incomingPartID){
-      partID = incomingPartID;
-      Serial1.begin(115200); // sonar io
-      if(!sonar.initialize())
-      {
-        // Send error message because sensor not found
-        communication.sendStatus(-22);
-      }
-      else{
-        initialised = true;
-      }
-    }
-
-    int getValue() {
-      if(initialised){
-        if(sonar.update()){
-          communication.bufferValue(this->partID+"_Dist",String(sonar.distance()));
-          communication.bufferValue(this->partID+"_Conf",String(sonar.confidence()));
-        }
-        else{
-          // Throw error because this sensor could not update
-          communication.sendStatus(-21);
-          if(!sonar.initialize())
-          {
-            // Send error message because sensor not found
-            communication.sendStatus(-22);
-          }
-          else{
-            initialised = true;
-          }
-        }
-      }
-      else{
-        // Throw error because this sensor has not yet been initialised properly
-        communication.sendStatus(-20);
-      }
-      
-    }
-
-    /* Set parameters for sensor */
-    int setParam(int index, int value){
-      // Index 1 = start of scanning range
-      // Index 2 = length of scanning range
-      if(index == 1){
-        /* Set the start of the sonar range */
-        sonStart = value;
-        sonar.set_range(sonStart,sonLen);
-      }
-      else if(index == 2){
-        /* Set the length of the sonar range */
-        sonLen = value;
-        sonar.set_range(sonStart,sonLen);
-      }
-      else{
-        // Throw error because not valid index
-        communication.sendStatus(-23);
-      }
-    }
-};
+///*
+//  The Sonar class represents the BlueRobotics Sonar (measuring distance) and sends this to the Pi using the communication class.
+//*/
+//class Sonar: public Input {
+//    // Designed to be a generic interface for all output devices.
+//
+//  protected:
+//    bool initialised = false;
+//    Ping1D sonar { Serial1 }; // sonar object
+//    int sonStart = 500, sonLen = 30000;
+//    
+//
+//  public:
+//    Sonar(String incomingPartID){
+//      partID = incomingPartID;
+//      Serial1.begin(115200); // sonar io
+//      if(!sonar.initialize())
+//      {
+//        // Send error message because sensor not found
+//        communication.sendStatus(-22);
+//      }
+//      else{
+//        initialised = true;
+//      }
+//    }
+//
+//    int getValue() {
+//      if(initialised){
+//        if(sonar.update()){
+//          communication.bufferValue(this->partID+"_Dist",String(sonar.distance()));
+//          communication.bufferValue(this->partID+"_Conf",String(sonar.confidence()));
+//        }
+//        else{
+//          // Throw error because this sensor could not update
+//          communication.sendStatus(-21);
+//          if(!sonar.initialize())
+//          {
+//            // Send error message because sensor not found
+//            communication.sendStatus(-22);
+//          }
+//          else{
+//            initialised = true;
+//          }
+//        }
+//      }
+//      else{
+//        // Throw error because this sensor has not yet been initialised properly
+//        communication.sendStatus(-20);
+//      }
+//      
+//    }
+//
+//    /* Set parameters for sensor */
+//    int setParam(int index, int value){
+//      // Index 1 = start of scanning range
+//      // Index 2 = length of scanning range
+//      if(index == 1){
+//        /* Set the start of the sonar range */
+//        sonStart = value;
+//        sonar.set_range(sonStart,sonLen);
+//      }
+//      else if(index == 2){
+//        /* Set the length of the sonar range */
+//        sonLen = value;
+//        sonar.set_range(sonStart,sonLen);
+//      }
+//      else{
+//        // Throw error because not valid index
+//        communication.sendStatus(-23);
+//      }
+//    }
+//};
 
 
 
@@ -676,9 +676,10 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"}; // Device IDs of those attached to Arduino T
 
     // i for Ard_I (Input)
-    const static int iCount=5;
+    const static int iCount=4;
     Input* iObjects[iCount];
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp", "Sen_Sonar"};
+    //String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp", "Sen_Sonar"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp"};
 
     // m for Ard_M (Micro ROV)
     const static int mCount=1; // Number of devices attached to Arduino M
@@ -713,7 +714,7 @@ class Mapper {
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
       iObjects[3] = new Temperature(iIDs[3]);
-      iObjects[4] = new Sonar(iIDs[4]);
+      //iObjects[4] = new Sonar(iIDs[4]);
     }
 
     /*

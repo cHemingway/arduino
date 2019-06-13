@@ -19,7 +19,7 @@
 //Sonar
 //#include "ping1d.h"
 //Temperature
-#include <Adafruit_MAX31865.h>
+//#include <Adafruit_MAX31865.h>
 
 /* ============================================================ */
 /* ==================Set up global variables=================== */
@@ -372,52 +372,52 @@ class PHSensor: public Input {
       return 0;
     }
 };
-
-class Temperature: public Input {
-    // Designed to be a generic interface for all output devices.
-
-  protected:
-    //bool initialised = false;
-    // Use software SPI: CS, DI, DO, CLK
-    Adafruit_MAX31865 max = Adafruit_MAX31865(10, 11, 12, 13);
-
-  public:
-    Temperature(String incomingPartID){
-      Wire.begin();
-      // Run parent method
-      partID = incomingPartID;
-      max.begin(MAX31865_3WIRE);
-    }
-
-    int getValue() {
-//      Serial.print("Temp: "); Serial.println(max.temperature(100, 430)); // Get temperature
-      communication.bufferValue(this->partID,String(max.temperature(100, 430)));
-      // Check and print any faults
-      uint8_t fault = max.readFault();
-
-      if (fault) {
-        if (fault & MAX31865_FAULT_HIGHTHRESH) {
-          communication.sendStatus(-14);
-        }
-        if (fault & MAX31865_FAULT_LOWTHRESH) {
-          communication.sendStatus(-15);
-        }
-        if (fault & MAX31865_FAULT_REFINLOW) {
-          communication.sendStatus(-16);
-        }
-        if (fault & MAX31865_FAULT_REFINHIGH) {
-          communication.sendStatus(-17);
-        }
-        if (fault & MAX31865_FAULT_RTDINLOW) {
-          communication.sendStatus(-18);
-        }
-        if (fault & MAX31865_FAULT_OVUV) {
-          communication.sendStatus(-19);
-        }
-        max.clearFault();
-      }
-    }
-};
+//
+//class Temperature: public Input {
+//    // Designed to be a generic interface for all output devices.
+//
+//  protected:
+//    //bool initialised = false;
+//    // Use software SPI: CS, DI, DO, CLK
+//    Adafruit_MAX31865 max = Adafruit_MAX31865(10, 11, 12, 13);
+//
+//  public:
+//    Temperature(String incomingPartID){
+//      Wire.begin();
+//      // Run parent method
+//      partID = incomingPartID;
+//      max.begin(MAX31865_3WIRE);
+//    }
+//
+//    int getValue() {
+////      Serial.print("Temp: "); Serial.println(max.temperature(100, 430)); // Get temperature
+//      communication.bufferValue(this->partID,String(max.temperature(100, 430)));
+//      // Check and print any faults
+//      uint8_t fault = max.readFault();
+//
+//      if (fault) {
+//        if (fault & MAX31865_FAULT_HIGHTHRESH) {
+//          communication.sendStatus(-14);
+//        }
+//        if (fault & MAX31865_FAULT_LOWTHRESH) {
+//          communication.sendStatus(-15);
+//        }
+//        if (fault & MAX31865_FAULT_REFINLOW) {
+//          communication.sendStatus(-16);
+//        }
+//        if (fault & MAX31865_FAULT_REFINHIGH) {
+//          communication.sendStatus(-17);
+//        }
+//        if (fault & MAX31865_FAULT_RTDINLOW) {
+//          communication.sendStatus(-18);
+//        }
+//        if (fault & MAX31865_FAULT_OVUV) {
+//          communication.sendStatus(-19);
+//        }
+//        max.clearFault();
+//      }
+//    }
+//};
 
 ///*
 //  The Sonar class represents the BlueRobotics Sonar (measuring distance) and sends this to the Pi using the communication class.
@@ -676,10 +676,10 @@ class Mapper {
     String tIDs[tCount] = {"Thr_FP", "Thr_FS", "Thr_AP", "Thr_AS", "Thr_TFP", "Thr_TFS", "Thr_TAP", "Thr_TAS", "Mot_R", "Mot_G", "Mot_F"}; // Device IDs of those attached to Arduino T
 
     // i for Ard_I (Input)
-    const static int iCount=4;
+    const static int iCount=3;
     Input* iObjects[iCount];
     //String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp", "Sen_Sonar"};
-    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH", "Sen_Temp"};
+    String iIDs[iCount] = {"Sen_IMU", "Sen_Dep", "Sen_PH"};
 
     // m for Ard_M (Micro ROV)
     const static int mCount=1; // Number of devices attached to Arduino M
@@ -713,7 +713,7 @@ class Mapper {
       iObjects[0] = new IMU(0,iIDs[0]);
       iObjects[1] = new Depth(0,iIDs[1]);
       iObjects[2] = new PHSensor(56,iIDs[2]);
-      iObjects[3] = new Temperature(iIDs[3]);
+      //iObjects[3] = new Temperature(iIDs[3]);
       //iObjects[4] = new Sonar(iIDs[4]);
     }
 

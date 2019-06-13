@@ -42,80 +42,37 @@ bool safetyActive = false; // Whether output devices are stopped because no data
 */
 class Communication{
   private:
-    static const int elementCount = 20;
-    String key[elementCount];
-    String value[elementCount];
-    int currentPosition = 0; // value of next free space
-
+    String messageContents = "";
+    
   public:
-    /*
-      Increment currentValue and send all values if buffer is full
-    */
-    void incrementPosition(){
-
-      currentPosition++;
-      if(currentPosition>=elementCount){
-        sendAll();
-        currentPosition = 0;
-      }
-    }
-
-    /*
-      Buffer a key:value pair to be sent to the Pi
-    */
     void bufferValue(String device, String incomingValue){
       // buffer a key value pair to be sent with next load
-      key[currentPosition] = device;
-      value[currentPosition] = incomingValue;
-      incrementPosition();
+      messageContents+=",\""+device;
+      messageContents+="\":\"";
+      messageContents+=incomingValue+"\"";
     }
-
-    /*
-      Buffer an error message to be sent to the PI
-    */
-    void bufferError(int code){
-      // buffer an error message to be sent with next load
-      String tempKey = "status_" + String(char(EEPROM.read(0)));
-      key[currentPosition] = tempKey;
-      value[currentPosition] = code;
-      incrementPosition();
+    void bufferError(String errorMessage){
+      messageContents+=",\"error_"+String(char(EEPROM.read(0)));
+      messageContents+="\":\"";
+      messageContents+=errorMessage+"\"";
     }
-
-    /*
-      Send the current status of this Arduino (e.g. booting)
-    */
-    void sendStatus (int status){
-      // immediately sends current status to pi
-      String resString;
-      const int capacity = 100;
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["deviceID"] = arduinoID; // add Arduino ID to every message
-      String tempKey = "status_" + String(char(EEPROM.read(0)));
-      res[tempKey] = status;
-      res.printTo(Serial);
-      Serial.println();
+    void sendStatus(int status){
+      //Hardcoded JSON
+      Serial.print("{\"deviceID\":\"");
+      Serial.print(arduinoID);
+      Serial.print("\",\"status_");
+      Serial.print(String(char(EEPROM.read(0))));
+      Serial.print("\":\"");
+      Serial.print(status);
+      Serial.println("\"}");
     }
-
-    /*
-      Send all buffered values to the Pi
-    */
     void sendAll(){
-//      if(currentPosition == 0) {
-//        return;
-//      }
-      String resString;
-      const int capacity = 1000; // Not sure about this size - probably needs calculating
-      StaticJsonBuffer<capacity> jb;
-      JsonObject& res = jb.createObject();
-      res["deviceID"] = arduinoID; // add Arduino ID to every message
-      for(int i = 0; i < currentPosition; i++){
-        // prepare all buffered values
-        res[key[i]] = value[i];
-      }
-      res.printTo(Serial);
-      Serial.println();
-      currentPosition = 0;
+      Serial.print("{\"deviceID\":\"");
+      Serial.print(arduinoID);
+      Serial.print("\"");
+      Serial.print(messageContents);
+      Serial.println("}");
+      messageContents="";
     }
 };
 
